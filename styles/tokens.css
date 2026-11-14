@@ -1,0 +1,85 @@
+/* TerraWatch AI — design tokens.
+   One identity, several data languages: every environmental category owns a hue so colour always carries meaning.
+   Heat = thermal ramp · Vegetation = lime/green · Population = violet · Cooling & health = cyan · Alerts = signal red. */
+:root {
+  color-scheme: dark;
+
+  /* ---- surfaces (deep forest-charcoal → midnight) ---- */
+  --bg-0: #070c0a;
+  --bg-1: #0a110f;
+  --surface-1: #101815;          /* chart surface — palette validated against this value */
+  --surface-2: #151f1b;
+  --surface-3: #1b2822;
+  --surface-4: #23332c;
+  --glass: rgba(14, 22, 19, 0.72);
+  --glass-strong: rgba(10, 16, 14, 0.88);
+  --line: rgba(236, 240, 226, 0.08);
+  --line-strong: rgba(236, 240, 226, 0.16);
+  --line-accent: rgba(184, 240, 74, 0.35);
+
+  /* ---- ink (warm neutrals) ---- */
+  --ink-1: #f2f0e6;
+  --ink-2: #c9c8ba;
+  --ink-3: #959c90;
+  --ink-4: #697267;
+
+  /* ---- brand ---- */
+  --forest-900: #0a2a1f;
+  --forest-700: #0f4a35;
+  --emerald-500: #1ec28b;
+  --emerald-400: #3fd9a3;
+  --lime-400: #b8f04a;
+  --lime-300: #cdf77a;
+  --cyan-400: #3cc3d6;
+  --teal-500: #1b9aaa;
+
+  /* ---- semantic data hues ---- */
+  --c-heat: #f08a3c;
+  --c-veg: #8bd43a;
+  --c-pop: #a08ff5;
+  --c-cool: #3cc3d6;
+  --c-alert: #ef5b4c;
+  --c-warn: #f5a93b;
+  --c-ok: #3fd9a3;
+
+  /* ---- chart series (validated: tools/validate_palette, dark mode, surface #101815) ---- */
+  --series-1: #1fa3bd;
+  --series-2: #d9772a;
+  --series-3: #8f80e8;
+  --series-4: #639f26;
+
+  /* ---- thermal ramp stops (cool → hot) ---- */
+  --heat-0: #24407a;
+  --heat-1: #2d7fa6;
+  --heat-2: #4cb3a6;
+  --heat-3: #e6dc8a;
+  --heat-4: #f5a93b;
+  --heat-5: #e8602c;
+  --heat-6: #d62f4b;
+  --thermal: linear-gradient(90deg, var(--heat-0), var(--heat-1), var(--heat-2), var(--heat-3), var(--heat-4), var(--heat-5), var(--heat-6));
+
+  /* ---- risk tiers ---- */
+  --tier-1: #2d8fb0;
+  --tier-2: #d6d27c;
+  --tier-3: #f5a93b;
+  --tier-4: #e8602c;
+  --tier-5: #d62f4b;
+
+  /* ---- type ---- */
+  --font-sans: 'Geist Variable', 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --font-serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+
+  /* ---- shape & depth ---- */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --shadow-1: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --shadow-2: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 24px 48px -20px rgba(0, 0, 0, 0.7);
+  --glow-lime: 0 0 0 1px rgba(184, 240, 74, 0.35), 0 8px 32px -6px rgba(184, 240, 74, 0.35);
+  --glow-emerald: 0 0 40px -8px rgba(30, 194, 139, 0.45);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --nav-h: 64px;
+}
