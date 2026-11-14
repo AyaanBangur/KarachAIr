@@ -6,3 +6,4 @@ data-cache
 !.env.example
 *.log
 .DS_Store
+*.zip

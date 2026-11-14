@@ -1,0 +1,27 @@
+.map-shell { position: relative; overflow: hidden; border-radius: var(--r-lg); min-height: 520px; height: 100%; padding: 0; background: #08100d; }
+.map-canvas, .map-loading { position: absolute; inset: 0; background: #08100d; }
+.leaflet-container { background: #08100d; font-family: var(--font-sans); outline: none; }
+.leaflet-container a { color: var(--lime-300); }
+.leaflet-control-attribution { background: rgba(7,12,10,.7) !important; color: var(--ink-4) !important; font-size: 10px; backdrop-filter: blur(6px); } .leaflet-control-attribution a { color: var(--ink-3) !important; }
+.leaflet-bar { border: 1px solid var(--line-strong) !important; border-radius: 12px !important; overflow: hidden; box-shadow: var(--shadow-1) !important; }
+.leaflet-bar a { background: var(--glass-strong) !important; color: var(--ink-1) !important; border-bottom: 1px solid var(--line) !important; backdrop-filter: blur(10px); } .leaflet-bar a:hover { background: var(--surface-4) !important; }
+.leaflet-interactive { transition: fill-opacity .2s; }
+path.unit-selected { filter: drop-shadow(0 0 7px rgba(184,240,74,.85)); }
+.tw-tip { background: var(--glass-strong); border: 1px solid var(--line-strong); color: var(--ink-1); border-radius: 12px; padding: 9px 12px; box-shadow: var(--shadow-2); backdrop-filter: blur(14px); font-size: 12.5px; }
+.tw-tip::before { display: none; }
+.tw-tip-name { font-weight: 600; font-size: 13px; margin-bottom: 4px; } .tw-tip-row { display: flex; justify-content: space-between; gap: 16px; color: var(--ink-3); } .tw-tip-row b { color: var(--ink-1); font-weight: 600; }
+
+.map-panel { position: absolute; z-index: 800; top: 12px; left: 12px; width: 236px; border-radius: 16px; max-height: calc(100% - 24px); overflow: auto; }
+.map-panel-head { width: 100%; display: flex; align-items: center; gap: 8px; padding: 11px 14px; background: transparent; border: 0; font-weight: 600; font-size: 13.5px; } .map-panel-head svg { width: 16px; height: 16px; color: var(--lime-400); }
+.map-panel-body { padding: 0 8px 12px; display: grid; gap: 12px; }
+.layer-group { display: grid; gap: 3px; padding: 0 6px; } .layer-group .toggle, .layer-group .slider-row { margin-top: 6px; }
+.layer-opt { display: flex; align-items: center; gap: 10px; text-align: left; padding: 7px 8px; border-radius: 10px; border: 1px solid transparent; background: transparent; font-size: 13px; color: var(--ink-2); transition: all .2s var(--ease); }
+.layer-opt:hover { background: rgba(255,255,255,.06); color: var(--ink-1); } .layer-opt.on { background: rgba(184,240,74,.1); border-color: var(--line-accent); color: var(--ink-1); }
+.layer-swatch { width: 22px; height: 10px; border-radius: 3px; flex: none; }
+.map-legend { position: absolute; z-index: 800; left: 12px; bottom: 12px; width: min(300px, calc(100% - 90px)); padding: 12px 14px; border-radius: 14px; display: grid; gap: 8px; }
+.map-legend-note { font-size: 11px; color: var(--ink-3); line-height: 1.4; } .tl-compact { gap: 4px 10px; }
+.map-hint { position: absolute; z-index: 800; right: 12px; top: 12px; font-size: 12px; color: var(--ink-2); }
+@media (max-width: 700px) { .map-panel { width: 200px; } .map-hint { display: none; } }
+
+/* Leaflet's canvas renderer is deliberately larger than the viewport; the global `canvas { max-width:100% }` reset must not shrink it. */
+.leaflet-container canvas, .leaflet-container img.leaflet-image-layer { max-width: none !important; max-height: none !important; }

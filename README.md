@@ -25,6 +25,17 @@ npm run build     # static site in dist/
 | Live weather | Open-Meteo forecast API (browser, keyless) | |
 | Boundaries | geoBoundaries (PBS 2017) | 18 towns + 6 cantonments |
 
+## Accounts: volunteers and organizations
+
+Everything sits behind a sign-in with two roles (`#/login`):
+
+- **Volunteer (students):** create an account (name, email, password); after signing in they are prompted to join an organization from a list (switchable from the top bar). Logs follow the account across devices. Emails are not verified and there is no automatic password reset. They get the **Volunteer hub**: Gemini-style field logging with auto-detection, team missions, impact stats, and review status on every log.
+- **Organization (school/NGO):** register with a name + passcode (min 8 chars; 5 wrong attempts lock sign-in for 15 min). They get the **Org console** (roster with emails, coverage-gap map, missions, review queue with field-vs-satellite checks) and the **Report builder**.
+
+Data lives in Supabase behind token-checked Postgres functions; the tables are closed to the public API, and each organization sees only its own volunteers' logs. Setup: copy `.env.example` to `.env.local` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` (the *publishable* key). Without them the app runs in a local demo mode. Logs are saved on-device first and uploaded when online. Locations are rounded to ~100 m. Anyone with an account can join any listed organization, so coordinators should remove people who shouldn't be on the roster; 5 wrong passwords lock an account for 15 minutes. There is no automatic passcode reset.
+
+The **Report** follows the dashboard: weights, scope, the Scenario lab's current settings, and the organization's field logs (verified/awaiting).
+
 ## What the "AI" is — and is not
 
 The Heat Risk Index is a **transparent, explainable composite** (hazard + exposure + vulnerability), not a trained ML model. Insights are rule-generated from measured values; each shows evidence, confidence and method. No AI model specification was supplied, so none is claimed. See the in-app **Methodology** page for limits.
@@ -36,5 +47,5 @@ scripts/pipeline/   data pipeline (stages: boundaries, worldpop, osm, climate, m
 public/data/        generated datasets served to the app
 src/lib/            risk model, scenario engine, insights, colours, data context
 src/components/     map, charts, dashboard panels, UI primitives
-src/pages/          Home, Dashboard, Methodology
+src/pages/          Dashboard (the only page; tabs: map, compare, trends, scenarios, report, volunteer)
 ```
