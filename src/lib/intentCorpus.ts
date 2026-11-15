@@ -86,3 +86,20 @@ export const CORPUS: Record<number, string[]> = {
     'what is the score of the match', 'how tall is the tower', 'let me think about it', 'i will ask my mother first',
   ],
 };
+
+// Roman Urdu: how many Karachi students really type (Urdu words in English letters, often mixed with English).
+// Written by the team. The keyword rules know none of these words, so this measures what the trained model adds.
+export const CORPUS_RU: Record<number, string[]> = {
+  1: ['kachra uthao', 'kachra jalana band karo', 'gali ki safai karo', 'plastic ki bottle jama karo', 'kooday ko aag lagana band karo', 'kachra alag alag karo', 'school ke bahar safai karo', 'kachray ka dher saaf karo', 'recycling shuru karo', 'gandagi saaf karo',
+    'sadak se kachra hatao', 'kachra dustbin mein daalo', 'park ki safai karni hai', 'plastic ke thailay jama karo', 'nalay se kachra nikalo', 'jalte hue kachre ko roko'],
+  2: ['gari ka engine band karo', 'gaariyon ka dhuan kam karo', 'school ke gate par engine band karwao', 'rickshaw ka dhuan', 'traffic ka dhuan', 'drivers ko engine band karne ko kaho', 'gaari mein carpool karo', 'bus se school jao', 'signal par engine off karwao', 'gate par gaariyon ki line',
+    'bus ka kala dhuan', 'parents ko engine band karne ko batao', 'rush mein gaariyon ka dhuan', 'school van ka engine band rakho', 'sadak par gaariyon ka dhuan', 'paidal school jane ki muhim'],
+  3: ['darakht lagao', 'paudhe lagao', 'paudhon ko pani do', 'dhool kam karne ke liye pedh lagao', 'khali zameen par hariyali karo', 'neem ke darakht lagao', 'school ki deewar ke saath paudhe', 'saye ke liye darakht', 'bagh mein paudhe lagao', 'mitti ko udne se roko',
+    'naye paudhe lagane hain', 'hariyali badhao', 'gali mein sayedar darakht lagao', 'paudhon ki dekh bhal karo', 'ret ke toofan ke liye darakht', 'bachon ke saath paudhe lagao'],
+  4: ['mask baanto', 'logon ko sehat ke baare mein batao', 'garmi se bachne ke tareeqe batao', 'mazdooron ko pani do', 'dama ke marizon ko batao', 'poster banao hawa ke baare mein', 'bazurgon ko garmi se bachao', 'bacchon ko smog ke baare mein sikhao', 'ors baanto', 'hifazati mashwaray share karo',
+    'mohalle mein mask taqseem karo', 'loo se bachao ki muhim', 'hawa kharab ho to logon ko batao', 'sehat ka seminar karao', 'rickshaw walon ko pani do', 'smog mein ghar par rehne ka mashwara'],
+  5: ['temperature naapo', 'hawa ki quality ka record rakho', 'readings likho', 'sensor ki dekh bhal karo', 'data jama karo', 'garmi ke numbers likho', 'thermometer se naapo', 'graph banao', 'dhuaan wale dino ka hisaab rakho', 'satellite ke saath readings milao',
+    'roz ka temperature note karo', 'pollution ke numbers ka chart banao', 'sayay aur dhoop ka temperature naapo', 'hawa ke sensor ki reading dekho', 'mohalle ka data jama karo', 'report ke liye numbers jama karo'],
+  0: ['kya haal hai', 'khana kha liya', 'mujhe neend aa rahi hai', 'kal milte hain', 'shukriya', 'aaj mausam kaisa hai', 'cricket dekhna hai', 'mujhe nahi pata', 'ghar jana hai', 'tum kaun ho',
+    'mujhe bhook lagi hai', 'koi kahani sunao', 'ye kya hai', 'baad mein baat karte hain', 'mera dost intezar kar raha hai', 'match ka score kya hai', 'mujhe pizza pasand hai', 'kitne baje hain'],
+};

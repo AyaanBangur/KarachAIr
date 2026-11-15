@@ -174,6 +174,8 @@ ${LABELS.map((l, i) => `| ${NAME[l]} | ${confusion[i].join(' | ')} |`).join('\n'
 ${group('Clean wording', (e) => e.variant === 'clean')}
 ${group('With typos', (e) => e.variant === 'typo')}
 ${group('Reworded ("I want to...", "maybe...")', (e) => e.variant === 'framed')}
+${group('Roman Urdu (Urdu in English letters)', (e) => e.lang === 'roman-urdu')}
+${group('English', (e) => e.lang === 'en')}
 ${group('Short (1 to 3 words)', (e) => e.base.split(' ').length <= 3)}
 ${group('Long (6 or more words)', (e) => e.base.split(' ').length >= 6)}
 

@@ -2,12 +2,13 @@
 // It is trained in the browser at start-up (a fraction of a second) from the team-written dataset in intentCorpus.ts.
 //   labels: 1 waste & burning, 2 traffic no-idling, 3 trees & dust, 4 health & masks, 5 data & sensors, 0 = not an activity answer.
 // scripts/eval.ts compares it with simple baselines on test sentences it never saw, and docs/RESULTS.md reports the numbers.
-import { CORPUS } from './intentCorpus';
+import { CORPUS, CORPUS_RU } from './intentCorpus';
 
 // ------------------------------------------------------------------ dataset, split and augmentation
 export type Variant = 'clean' | 'typo' | 'framed';
 export type Split = 'train' | 'val' | 'test';
-export interface Example { text: string; base: string; label: number; variant: Variant; split: Split }
+export type Lang = 'en' | 'roman-urdu';
+export interface Example { text: string; base: string; label: number; variant: Variant; split: Split; lang: Lang }
 
 const hash = (s: string) => { let x = 2166136261; for (const c of s) { x ^= c.charCodeAt(0); x = Math.imul(x, 16777619); } return x >>> 0; };
 /** The split is decided per BASE sentence, so a sentence and its typo / reworded copies are always on the same side. */
@@ -26,9 +27,13 @@ const typoOf = (text: string, rnd: () => number): string => {
 const FRAMES = ['i want to ', 'can i ', 'maybe ', 'i would like to ', 'something like ', 'let me ', 'how about ', 'i think ', 'please '];
 export function allExamples(): Example[] {
   const out: Example[] = [];
-  for (const [l, texts] of Object.entries(CORPUS)) for (const base of texts) {
+  const sources: [string, string, Lang][] = [
+    ...Object.entries(CORPUS).flatMap(([l, ts]) => ts.map((t) => [l, t, 'en'] as [string, string, Lang])),
+    ...Object.entries(CORPUS_RU).flatMap(([l, ts]) => ts.map((t) => [l, t, 'roman-urdu'] as [string, string, Lang])),
+  ];
+  for (const [l, base, lang] of sources) {
     const rnd = rngFor('aug:' + base), split = splitOf(base), label = Number(l);
-    out.push({ text: base, base, label, variant: 'clean', split }, { text: typoOf(base, rnd), base, label, variant: 'typo', split }, { text: FRAMES[Math.floor(rnd() * FRAMES.length)] + base, base, label, variant: 'framed', split });
+    out.push({ text: base, base, label, variant: 'clean', split, lang }, { text: typoOf(base, rnd), base, label, variant: 'typo', split, lang }, { text: FRAMES[Math.floor(rnd() * FRAMES.length)] + base, base, label, variant: 'framed', split, lang });
   }
   return out;
 }
@@ -92,7 +97,7 @@ export function probsLR(m: LRModel, text: string): { label: number; p: number }[
 export type Mode = 'model-only' | 'model-first' | 'rules-first';
 export interface Policy { model: 'nb' | 'lr'; mode: Mode; tau: number }
 /** Deployed settings, CHOSEN ON THE VALIDATION SPLIT by `npm run eval` (it prints the search and warns if these drift). */
-export const POLICY: Policy = { model: 'lr', mode: 'model-first', tau: 0.5 };
+export const POLICY: Policy = { model: 'lr', mode: 'model-only', tau: 0.5 };
 
 /**
  * Combine the model's probabilities with what the keyword rules understood.

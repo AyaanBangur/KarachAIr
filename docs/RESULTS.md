@@ -8,8 +8,8 @@ Hawa, the volunteer guide, is the AI that does the app's main job of **matching 
 
 ## How it was tested, and what we did to keep it honest
 
-- **Data:** 1155 sentences made from 385 sentences we wrote ourselves (no real student messages, so no personal data). Each base sentence has a clean, a typo and a reworded version.
-- **Split:** 699 train / 267 validation / 189 test, split **by base sentence**, so a sentence and its copies never sit on both sides. Overlap check: **0 shared sentences** between splits.
+- **Data:** 1449 sentences made from 483 sentences we wrote ourselves (no real student messages, so no personal data). Each base sentence has a clean, a typo and a reworded version.
+- **Split:** 879 train / 321 validation / 249 test, split **by base sentence**, so a sentence and its copies never sit on both sides. Overlap check: **0 shared sentences** between splits.
 - **Tuning on validation only.** The model type and the confidence threshold were chosen on the validation split. The test split was used once, to report.
 - **Baselines:** (1) always predict the most common label (`not an activity`), (2) Hawa's original keyword rules alone (the "simple rules" a judge would try first).
 
@@ -17,73 +17,71 @@ Hawa, the volunteer guide, is the AI that does the app's main job of **matching 
 
 | Model (trained on train only) | Validation accuracy |
 |---|---|
-| Majority label | 18% |
-| Keyword rules only | 60% |
-| Naive Bayes | 88% |
-| Logistic regression | 87% |
+| Majority label | 16% |
+| Keyword rules only | 53% |
+| Naive Bayes | 89% |
+| Logistic regression | 88% |
 
-Policy search on validation (model first or rules first, and the confidence threshold), keeping off-topic false accepts at or below 5%: best was **undefined, threshold 0.5** with 84% validation accuracy.
+Policy search on validation (model first or rules first, and the confidence threshold), keeping off-topic false accepts at or below 5%: best was **undefined, threshold 0.5** with 86% validation accuracy.
 
 ### Test results (the deployed pipeline, on sentences it never saw)
 
 | Method | Correct | Accuracy | Off-topic wrongly treated as an activity |
 |---|---|---|---|
-| Always predict the most common label | 48 / 189 | **25%** | 0% |
-| Keyword rules only (baseline) | 112 / 189 | **59%** | 8% |
-| **Hawa with the trained model** | 162 / 189 | **86%** | 8% |
+| Always predict the most common label | 57 / 249 | **23%** | 0% |
+| Keyword rules only (baseline) | 136 / 249 | **55%** | 7% |
+| **Hawa with the trained model** | 212 / 249 | **85%** | 2% |
 
-- 95% confidence interval for accuracy: keyword rules 52% to 66%; with the trained model **80% to 90%**. The test set is small (189), so treat small differences with caution.
-- Macro-F1 (fair across classes): rules 57.4%, with the model **87.2%**.
+- 95% confidence interval for accuracy: keyword rules 48% to 61%; with the trained model **80% to 89%**. The test set is small (249), so treat small differences with caution.
+- Macro-F1 (fair across classes): rules 54.7%, with the model **86.0%**.
 
 ### Per activity (test)
 
 | Activity | Precision | Recall | F1 | Test sentences |
 |---|---|---|---|---|
-| Clean up waste & burning | 90% | 100% | 95% | 27 |
-| Traffic no-idling shifts | 86% | 55% | 67% | 33 |
-| Plant trees & fight dust | 96% | 89% | 92% | 27 |
-| Health awareness & mask drives | 100% | 88% | 94% | 33 |
-| Track air & heat data | 100% | 95% | 98% | 21 |
-| not an activity | 69% | 92% | 79% | 48 |
+| Clean up waste & burning | 85% | 100% | 92% | 33 |
+| Traffic no-idling shifts | 88% | 67% | 76% | 45 |
+| Plant trees & fight dust | 97% | 69% | 81% | 42 |
+| Health awareness & mask drives | 98% | 87% | 92% | 45 |
+| Track air & heat data | 96% | 93% | 94% | 27 |
+| not an activity | 70% | 98% | 82% | 57 |
 
 ### Confusion matrix (rows = what it should be, columns = what Hawa said)
 
 | should be \ said | Clean up waste & burning | Traffic no-idling shifts | Plant trees & fight dust | Health awareness & mask drives | Track air & heat data | not an activity |
 |---|---|---|---|---|---|---|
-| Clean up waste & burning | 27 | 0 | 0 | 0 | 0 | 0 |
-| Traffic no-idling shifts | 3 | 18 | 0 | 0 | 0 | 12 |
-| Plant trees & fight dust | 0 | 0 | 24 | 0 | 0 | 3 |
-| Health awareness & mask drives | 0 | 0 | 0 | 29 | 0 | 4 |
-| Track air & heat data | 0 | 0 | 0 | 0 | 20 | 1 |
-| not an activity | 0 | 3 | 1 | 0 | 0 | 44 |
+| Clean up waste & burning | 33 | 0 | 0 | 0 | 0 | 0 |
+| Traffic no-idling shifts | 3 | 30 | 0 | 0 | 0 | 12 |
+| Plant trees & fight dust | 3 | 3 | 29 | 0 | 0 | 7 |
+| Health awareness & mask drives | 0 | 1 | 0 | 39 | 1 | 4 |
+| Track air & heat data | 0 | 0 | 0 | 1 | 25 | 1 |
+| not an activity | 0 | 0 | 1 | 0 | 0 | 56 |
 
 ### Does it work equally well for different kinds of messages? (test)
 
 | Kind of message | Sentences | Rules only | With the model |
 |---|---|---|---|
-| Clean wording | 63 | 60% | **87%** |
-| With typos | 63 | 57% | **86%** |
-| Reworded ("I want to...", "maybe...") | 63 | 60% | **84%** |
-| Short (1 to 3 words) | 30 | 67% | **87%** |
-| Long (6 or more words) | 87 | 45% | **75%** |
+| Clean wording | 83 | 55% | **88%** |
+| With typos | 83 | 53% | **84%** |
+| Reworded ("I want to...", "maybe...") | 83 | 55% | **83%** |
+| Roman Urdu (Urdu in English letters) | 60 | 40% | **83%** |
+| English | 189 | 59% | **86%** |
+| Short (1 to 3 words) | 54 | 65% | **81%** |
+| Long (6 or more words) | 96 | 44% | **80%** |
 
-### Is the improvement real, or luck? (same 189 test sentences)
+### Is the improvement real, or luck? (same 249 test sentences)
 
-On the sentences where the rules and the model disagree, the model alone was right 50 times and the rules alone 0 times. McNemar's exact test gives **p = < 0.001**, so the improvement is very unlikely to be chance.
+On the sentences where the rules and the model disagree, the model alone was right 82 times and the rules alone 6 times. McNemar's exact test gives **p = < 0.001**, so the improvement is very unlikely to be chance.
 
 ### Cross-validation (5 folds, grouped by base sentence, each fold tested on sentences its model never saw)
 
 | Method | Mean accuracy | Spread (standard deviation) |
 |---|---|---|
-| Keyword rules only | 60.9% | 6.0% |
-| **Hawa with the trained model** | **86.3%** | 4.2% |
+| Keyword rules only | 56.4% | 7.0% |
+| **Hawa with the trained model** | **86.1%** | 3.7% |
 
 ### Where it fails
 
-- "okay whatveer" (typo): said Plant trees & fight dust, should be not an activity
-- "i want to watch a cartoon" (clean): said Traffic no-idling shifts, should be not an activity
-- "i want to watch a cartaon" (typo): said Traffic no-idling shifts, should be not an activity
-- "i think i want to watch a cartoon" (framed): said Traffic no-idling shifts, should be not an activity
 - "drop off and pick up queue" (clean): said Clean up waste & burning, should be Traffic no-idling shifts
 - "drop off and pick up queeu" (typo): said Clean up waste & burning, should be Traffic no-idling shifts
 - "i would like to drop off and pick up queue" (framed): said Clean up waste & burning, should be Traffic no-idling shifts
@@ -92,6 +90,10 @@ On the sentences where the rules and the model disagree, the model alone was rig
 - "please ask taxi drivers to stop idling" (framed): said not an activity, should be Traffic no-idling shifts
 - "monitor traffic fumes at rush hour" (clean): said not an activity, should be Traffic no-idling shifts
 - "monitor traffic fumes at rush hour" (typo): said not an activity, should be Traffic no-idling shifts
+- "something like monitor traffic fumes at rush hour" (framed): said not an activity, should be Traffic no-idling shifts
+- "stop auto rickshaws idling at the signal" (clean): said not an activity, should be Traffic no-idling shifts
+- "stop auto rickshaws idlong at the signal" (typo): said not an activity, should be Traffic no-idling shifts
+- "can i stop auto rickshaws idling at the signal" (framed): said not an activity, should be Traffic no-idling shifts
 
 Why we think it fails: the model learns from words and letter patterns, not meaning. It does best on wording close to the training sentences, and it can be fooled by sentences that mix two activities or use words it has never seen. It is trained on our own English wording, so it can be worse on how Karachi's students really type, including Roman Urdu. It does not understand Hindi directly; Hindi chats are translated to English first by a free service, which adds its own errors.
 

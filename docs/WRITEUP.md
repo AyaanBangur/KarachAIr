@@ -15,25 +15,34 @@ Our own idea (not one of the suggested projects). **Our own question:** *"Where 
 - **Our own place and data:** Karachi's 24 neighbourhoods, NASA satellite heat, population, vegetation and live air and weather, not a tutorial dataset.
 - **Our own user:** high-school volunteers and the coordinators who place them. The mission list explains itself ("PM2.5 140 µg/m³ (live), heat risk #2 of 24").
 - **Need and safety together:** missions are ranked by need, and outdoor ones lock automatically when the air is hazardous. The hub marks the **"Best right now"**: the highest-need mission that is also safe today.
-- **Understands how students really write:** a trained model maps free-typed sentences, typos included, to activities, instead of forcing menu clicks.
+- **Understands how Karachi students really write, in English and Roman Urdu.** A trained model maps free-typed sentences, typos and Urdu-in-English-letters included ("kachra uthao", "darakht lagao"), to activities. The keyword rules know none of the Urdu words. On unseen sentences, the rules got **40%** of Roman Urdu right and the trained model **83%**.
+- **An original finding from our own data:** Karachi's hottest neighbourhoods are *not* its most polluted. Only 1 place (Gulberg) is in both top-5 lists, about what chance gives (rank correlation 0.19; snapshot in `docs/FINDINGS.md`). So heat and air need different missions in different places, and the app ranks need from both.
 - **Verified outcome:** an organization verifies the hours and the student gets a certificate with a note about what they did.
 
-**How it differs:** typical air-quality apps and dashboards show readings and stop there; general volunteering platforms list generic tasks with no link to live environmental data. We did not find a tool that turns satellite and live air and heat data into explained, safety-gated, verifiable volunteer missions for students (we cannot promise none exists).
+**How it differs** (from their public descriptions; we cannot promise nothing else exists):
+
+| Existing tool | What it does | What it does not do |
+|---|---|---|
+| IQAir (air-quality app) | Shows live readings and health advice | No volunteer tasks, no satellite heat |
+| OpenAQ (open air-quality data) | Collects and shares monitor data | Data only, no action for students |
+| NASA Worldview (satellite viewer) | Shows satellite imagery | No ranking of neighbourhoods, no missions |
+| VolunteerMatch (volunteer listings) | Lists volunteer opportunities | Tasks are not tied to live air or heat, no safety lock |
+| **KarachAir** | Turns satellite and live air and heat data into explained, safety-gated, verifiable missions for students | |
 
 ## How it works
 **Data:** NASA MODIS land-surface temperature (3 hot seasons, 23 composites) and vegetation, WorldPop population, OpenStreetMap health facilities, ERA5-Land, and live Open-Meteo weather and air quality (CAMS model, ~11 km). Mission priority is a transparent formula over these, not a trained model, so every number can be explained.
-**Model (the AI):** Hawa's activity understanding. We wrote 385 sentences students might say (about 63 per activity plus off-topic answers), each with a clean, a typo and a reworded version: 1,155 examples, split **by base sentence** into 699 train / 267 validation / 189 test, so no sentence and none of its copies is on both sides (0 shared). On the validation split, Naive Bayes scored 88% and logistic regression 87%. We then searched how to combine each model with the keyword rules and chose, on validation only, the most accurate setting that does not wrongly accept more off-topic answers than the rules do: **logistic regression, model first, confidence 0.5**. Nothing was tuned on the test split.
+**Model (the AI):** Hawa's activity understanding. We wrote 483 sentences students might say (English and Roman Urdu, about 80 per activity plus off-topic answers), each with a clean, a typo and a reworded version: 1,449 examples, split **by base sentence** into 879 train / 321 validation / 249 test, so no sentence and none of its copies is on both sides (0 shared). On the validation split, Naive Bayes scored 89% and logistic regression 88%. We then searched how to combine each model with the keyword rules and chose, on validation only, the most accurate setting that does not wrongly accept more off-topic answers than the rules do: **logistic regression, model only, with the rules supplying combinations like "trees and masks"**. Nothing was tuned on the test split.
 
 ## Results
-Test sentences the model never saw (189):
+Test sentences the model never saw (249):
 
 | Method | Accuracy |
 |---|---|
-| Always guess the most common label (baseline 1) | 25% |
-| Hawa's original keyword rules alone (baseline 2) | 59% |
-| **Hawa with the trained model** | **86%** (95% interval 80% to 90%) |
+| Always guess the most common label (baseline 1) | 23% |
+| Hawa's original keyword rules alone (baseline 2) | 55% |
+| **Hawa with the trained model** | **85%** (95% interval 80% to 89%) |
 
-Macro-F1 (fair across activities) rose from 57% to 87%. The model was right on 50 sentences where the rules were wrong and wrong on none where the rules were right (McNemar p < 0.001), and 5-fold cross-validation agrees (86.3% +/- 4.2%, against 60.9% for the rules). Accuracy was similar across clean wording (87%), typos (86%), reworded (84%) and short messages (87%). **Where it fails:** long messages (75%), and it sometimes says "not an activity" for real ones whose wording it has not seen (for example "stop sand blowing"). It wrongly accepts 8% of off-topic answers, the same as the rules. The model learns words and letter patterns, not meaning, and our sentences are our own English, so real students' typing and Roman Urdu will be harder. Beyond the model: bad air or dangerous heat moves a place up the mission list in 100 of 100 random trials, and 67 automated tests pass (`npm test`). Weak science we found and report: greenery explains only about 2% of surface-temperature differences in our data (R-squared 0.019), and only 3 hot seasons are loaded. We have not piloted with real students or checked the heat ranking against thermometers.
+Macro-F1 (fair across activities) rose from 55% to 86%. The model was right on 82 sentences where the rules were wrong, and wrong on 6 where the rules were right (McNemar p < 0.001), and 5-fold cross-validation agrees. By kind of message: **Roman Urdu 83% (rules 40%)**, English 86%, with typos 84%, reworded 83%, short 81%, long 80%. It wrongly accepts 2% of off-topic answers (the rules alone: 7%). **Where it fails:** a few real activities phrased in ways it has not seen get called "not an activity", and some mixed-activity sentences go to one activity. The model learns words and letter patterns, not meaning, and our sentences are ours, not real students', so real typing will be harder. Beyond the model: bad air or dangerous heat moves a place up the mission list in 100 of 100 random trials, and 67 automated tests pass (`npm test`). Weak science we found and report: greenery explains only about 2% of surface-temperature differences in our data (R-squared 0.019), and only 3 hot seasons are loaded. We have not piloted with real students or checked the heat ranking against thermometers.
 
 ## What we'd do next
 1. Run a 4-week pilot with one school and one NGO, collect real student messages (with permission), and re-measure Hawa on them, including Roman Urdu.
