@@ -4,7 +4,7 @@
 // the organization's field logs (with their review status). All user-entered text is HTML-escaped.
 import type { ClimateFile, MetaFile, UnitFeature } from './types';
 import type { LiveAir, LiveWeather } from './hooks';
-import { unitNeeds } from './needs';
+import { fieldCountsFrom, generateTasks, needLabel, priorityTasks, unitNeeds } from './needs';
 import { confidenceFor, dominantDriver, type Baseline, type RiskScore, type RiskWeights } from './risk';
 import { opportunitiesFor, type Insight } from './insights';
 import { TIERS, tierFor } from './colors';
@@ -153,9 +153,13 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
     const clock = (ms?: number) => (ms ? new Date(ms).toLocaleString('en-GB', { timeZone: 'Asia/Karachi', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' PKT' : 'not available');
     out.push(h2(++n, 'Live conditions and trends'));
     out.push(`<p class="muted small">Live feeds refresh automatically every 10 minutes and this report updates with them. Weather updated ${esc(clock(lw?.fetchedAt))}; air quality updated ${esc(clock(la?.fetchedAt))}.</p>`);
-    const needs = unitNeeds({ units, scores, air: la, weather: lw, fieldCounts: new Map() }).slice(0, 5);
+    const needInput = { units, scores, air: la, weather: lw, fieldCounts: fieldCountsFrom(c.logs) };
+    const needs = unitNeeds(needInput).slice(0, 5);
+    const offered = priorityTasks(generateTasks(needInput), 8); // the first mission offered for each of the neediest places
     out.push(`<h3>Where volunteers are needed most right now</h3><p class="small muted">The volunteer hub builds its tasks from this ranking: heat-risk index, live PM2.5, live feels-like temperature and green space.</p>
     <table><thead><tr><th>#</th><th>Neighbourhood</th><th>Need</th><th>Why</th></tr></thead><tbody>${needs.map((x, i) => `<tr><td>${i + 1}</td><td><b>${esc(x.name)}</b>${x.badWeather ? ' <span class="badge">bad weather</span>' : ''}</td><td>${x.priority}/100</td><td class="small">${esc(x.drivers.join(' · '))}</td></tr>`).join('')}</tbody></table>`);
+    out.push(`<h3>Missions volunteers are being offered right now</h3><p class="small muted">The neediest places first, with the first mission offered for each. The top four are exactly what volunteers see under Notifications, and Hawa suggests the same missions. It is built from this report's data, so when the live air, heat or field records change, the missions change too.</p>
+    <table><thead><tr><th>Mission</th><th>Where</th><th>Need</th><th>Setting</th><th>Why</th></tr></thead><tbody>${offered.map((t) => `<tr><td><b>${esc(t.title)}</b></td><td>${esc(t.area)}</td><td>${t.need}/100 <span class="small muted">${esc(needLabel(t.need))}</span></td><td>${t.indoor ? 'Indoor' : 'Outdoor, adult-supervised'}, ${t.hours} h</td><td class="small">${esc(t.reason)}</td></tr>`).join('')}</tbody></table>`);
     if (lw) {
       const dates = lw.byUnit[topUnits[0]?.properties.id]?.daily.map((d) => d.date.slice(5)) ?? [];
       out.push(`<h3>7-day maximum temperature, highest-risk neighbourhoods (live forecast)</h3>${lineSvg(topUnits.map((u) => ({ name: u.properties.short, pts: lw.byUnit[u.properties.id]?.daily.map((d) => d.tmax) ?? [] })), dates, '°C', 'Seven-day maximum temperature forecast for the five highest-risk neighbourhoods')}`);

@@ -13,6 +13,12 @@ export const HOURS_PER_TASK = 2;
 export const HIGH_NEED = 55;
 const clamp = (v: number, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, v));
 
+/** How many field records each neighbourhood already has (flagged ones ignored). The report and the volunteer hub both use this. */
+export function fieldCountsFrom(logs: { unitId: string | null; status: string }[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const l of logs) if (l.unitId && l.status !== 'flagged') m.set(l.unitId, (m.get(l.unitId) ?? 0) + 1);
+  return m;
+}
 export interface NeedInput { units: UnitFeature[]; scores: Map<string, RiskScore>; air: LiveAir | null; weather: LiveWeather | null; fieldCounts: Map<string, number> }
 export interface UnitNeed { unitId: string; name: string; short: string; priority: number; badWeather: boolean; drivers: string[] }
 

@@ -4,7 +4,7 @@ import { useAuth } from '../../lib/auth';
 import { SHARED_ENABLED, useLogs } from '../../lib/logs';
 import { toMission } from '../../lib/orgMissions';
 import { mapsDirections, mapsView } from '../../lib/maps';
-import { generateTasks, priorityTasks, taskToMission } from '../../lib/needs';
+import { fieldCountsFrom, generateTasks, priorityTasks, taskToMission } from '../../lib/needs';
 import { useLocalState, type AirState, type LiveWeather } from '../../lib/hooks';
 import { GuideChat } from './GuideChat';
 import { registerAreas, type Task } from '../../lib/guide';
@@ -19,7 +19,7 @@ import { Alert, Check, Close, Doc, Pin, Sparkle } from '../icons';
 export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWeather | null }) {
   const { data, scores } = useTerra();
   const { session } = useAuth();
-  const { proofs, mine, add, remove, sync, refresh, missions: posted, logs: fieldLogs } = useLogs();
+  const { proofs, mine, add, remove, sync, refresh, missions: posted, allLogs } = useLogs();
   const focus = useAirFocus(data.units, air);
   const [view, setView] = useState<'chat' | 'find' | 'notify' | 'record'>('chat');
   const [simulate, setSimulate] = useState(false);
@@ -39,7 +39,7 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
   const org = session?.org?.name ?? 'your organization';
   const gate = gateFor(focus.reading, simulate, place);
   // Every task comes from the data (heat risk, live air, live weather, green space, field-log coverage), never a preset list.
-  const fieldCounts = useMemo(() => { const m = new Map<string, number>(); for (const l of fieldLogs) if (l.unitId) m.set(l.unitId, (m.get(l.unitId) ?? 0) + 1); return m; }, [fieldLogs]);
+  const fieldCounts = useMemo(() => fieldCountsFrom(allLogs), [allLogs]);
   useMemo(() => registerAreas(data.units), [data.units]); // Hawa understands every Karachi town on the map
   const tasks = useMemo(() => generateTasks({ units: data.units, scores, air: air.data, weather, fieldCounts }), [data.units, scores, air.data, weather, fieldCounts]);
   const bank = useMemo(() => tasks.filter((t) => t.unitId === unit?.properties.id).map(taskToMission), [tasks, unit]);
