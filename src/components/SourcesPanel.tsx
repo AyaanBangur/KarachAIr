@@ -17,6 +17,7 @@ const clock = (ms?: number) => (ms ? new Date(ms).toLocaleTimeString('en-GB', { 
 /** Where every number comes from, with live status, so people can judge whether to trust it. */
 export function SourcesPanel({ air, weather: wx }: { air: AirState; weather: { status: 'loading' | 'ok' | 'error'; data: LiveWeather | null } }) {
   const { data } = useTerra();
+  const reg = data.meta.lst?.regression;
   const status = (s: Src) => {
     if (s.cadence === 'static') return <span className="src-tag static">Fixed dataset</span>;
     if (s.cadence === 'periodic') return <span className="src-tag periodic">Data build {new Date(data.meta.generatedAt).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</span>;
@@ -27,6 +28,15 @@ export function SourcesPanel({ air, weather: wx }: { air: AirState; weather: { s
     <section className="sources" aria-label="Data sources">
       <div className="sources-head"><span className="eyebrow">Where our data comes from</span><h2 className="fancy">Real data, with the receipts</h2>
         <p>Every figure in KarachAir traces to a named public source. Live feeds refresh on their own every 10 minutes. Satellite composites arrive in batches, so they are labelled with their build date instead of being called live.</p></div>
+      <div className="card card-pad" style={{ margin: '0 0 18px' }}>
+        <h3 style={{ marginTop: 0 }}>What this data can and cannot tell you</h3>
+        <ul style={{ margin: '8px 0 0', paddingLeft: 18, lineHeight: 1.6 }}>
+          {reg && <li><b>Greenery and heat are only weakly linked here.</b> Across {reg.n.toLocaleString('en-US')} pixels, R&sup2; is {reg.r2.toFixed(3)}: greenery explains about {(reg.r2 * 100).toFixed(1)}% of the differences in afternoon surface temperature. We treat greening effects as small and uncertain.</li>}
+          <li><b>Only {data.meta.lst?.seasons.length ?? 0} hot seasons</b> of satellite data ({[...(data.meta.lst?.seasons ?? [])].sort().join(', ')}), so this shows today&rsquo;s pattern, not a long trend. Long-term warming comes from the separate ERA5 record.</li>
+          <li><b>Air quality is a ~11 km model, not street-level sensors.</b> A school gate can differ from the number shown.</li>
+          <li><b>The Heat Risk Index is a relative ranking</b> of the 24 neighbourhoods, not an absolute danger level and not a trained model. The volunteer missions are rules over live data; Hawa&rsquo;s activity understanding uses a small trained classifier (see docs/RESULTS.md).</li>
+        </ul>
+      </div>
       <div className="sources-grid">
         {SOURCES.map((s) => (
           <a key={s.name} className="src-card" href={s.url} target="_blank" rel="noopener noreferrer">

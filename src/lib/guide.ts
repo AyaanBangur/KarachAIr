@@ -39,7 +39,7 @@ export function registerAreas(units: { properties: { id: string; name: string; s
   for (const u of units) {
     const p = u.properties, extras = EXTRA_ALIASES[p.id] ?? [];
     const own = AREAS.find((a) => a.unitId === p.id);
-    const names = [p.short, p.name, p.name.replace(/ (town|cantonment)$/i, ''), ...extras].map(cleanName).filter(Boolean);
+    const names = [p.short, p.name, (/cantonment$/i.test(p.name) ? p.name : p.name.replace(/ town$/i, '')), ...extras].map(cleanName).filter(Boolean);
     if (own) { own.aliases = [...new Set([...own.aliases, ...names.filter((n) => !['university', 'faisal'].includes(n))])]; continue; }
     AREAS.push({ name: p.short, lat: p.centroid[1], lon: p.centroid[0], unitId: p.id, aliases: [...new Set(names)] });
   }
@@ -53,6 +53,8 @@ export function haversine(lat1: number, lon1: number, lat2: number, lon2: number
 }
 export const taskPos = (t: Task) => ({ lat: t.lat, lon: t.lon });
 const HIGH = 55;
+
+import { activityFromText } from './intent';
 
 // ------------------------------------------------------------------ state
 export type Setting = 'Indoor' | 'Outdoor' | 'Any';
@@ -343,7 +345,8 @@ export function respond(state: GState, text: string, ctx: GCtx): Out {
   // explicit extraction (works for several answers in one sentence)
   // while a question is open, forgive typos and speech-to-text slips by matching against what that question expects
   const area = parseArea(raw) ?? (s.stage === 'area' ? parseAreaFuzzy(raw) : null); if (area) p.area = area;
-  const types = parseTypes(raw, p.types) ?? (s.stage === 'types' ? parseTypes(correct(raw, TYPE_WORDS), p.types) : null); if (types) p.types = types;
+  // 1) keyword rules, 2) typo-correction, 3) a small trained classifier for wording the rules do not know
+  const types = parseTypes(raw, p.types) ?? (s.stage === 'types' ? parseTypes(correct(raw, TYPE_WORDS), p.types) ?? (activityFromText(raw) ? [activityFromText(raw)!] : null) : null); if (types) p.types = types;
   const setting = parseSetting(raw) ?? (s.stage === 'setting' ? parseSetting(correct(raw, SETTING_WORDS)) : null); if (setting) p.setting = setting;
   const dist = parseDistance(raw); if (dist != null) p.radius = dist;
   let lead = ack(p, was, ctx);

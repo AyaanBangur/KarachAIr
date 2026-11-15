@@ -80,7 +80,7 @@ function Chooser({ demo }: { demo: (r: 'org' | 'volunteer') => void }) {
             <span className="demo-btns"><button className="btn btn-sm" onClick={() => demo('volunteer')}>Try as volunteer</button><button className="btn btn-sm" onClick={() => demo('org')}>Try as organization</button></span></span>
         </div>
       )}
-      <div style={{ textAlign: 'center', margin: '22px 0 0' }}><button className="btn btn-ghost" onClick={() => demo('volunteer')}>Just looking? Explore as a guest (demo)</button><div className="muted" style={{ fontSize: 12, marginTop: 6 }}>No account needed. Your activity stays on this device only.</div></div>
+      <div style={{ textAlign: 'center', margin: '22px 0 0' }}><span style={{ display: 'inline-flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}><button className="btn btn-ghost" onClick={() => demo('volunteer')}>Explore as a guest volunteer (demo)</button><button className="btn btn-ghost" onClick={() => demo('org')}>Judge view: see every analysis tab (demo)</button></span><div className="muted" style={{ fontSize: 12, marginTop: 6 }}>No account needed. Your activity stays on this device only. The judge view shows the organization tabs, Report and Data & sources; the team console needs a real organization account.</div></div>
       <p className="auth-foot muted">Not sure which organization to join? Ask your coordinator. Or <a href={hrefFor({ page: 'login', tab: 'organization' })}>register your organization</a>.</p>
     </div>
   );

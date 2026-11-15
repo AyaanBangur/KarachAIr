@@ -72,19 +72,25 @@ The **Report** follows the dashboard: weights, scope, the Scenario lab's current
 
 Accepted missions are stored as ordinary records (kind `other`, tagged `volunteer-mission`) so the shared database needs no schema change. The organization's verification (signer, role, date, verified hours, proof) is stored in the record's review note. The certificate is a one-page "Certificate of Completion" PDF generated in the browser (`pdf-lib`).
 
-## What the "AI" is — and is not
+## What the "AI" is, and is not
 
-- The **Heat Risk Index** is a transparent, explainable composite (hazard + exposure + vulnerability), not a trained ML model. Insights are rule-generated from measured values and show their evidence, confidence and method. See the in-app **Methodology** page.
-- The **chat guide is a rule-based script**, not an AI language model, and it says so. It matches keywords; it does not understand free text like a person.
-- **Voice**: speech output and recognition use the browser's own speech features (Chrome/Edge send audio to their speech service).
-- **Translation**: for non-English chats the student's messages and the guide's replies go through the free MyMemory translation service. The app warns users not to type personal details. Translation can be wrong.
+- A **small trained text classifier** (Naive Bayes over words and letter-triples, trained in the browser from `src/lib/intentData.ts`) helps Hawa understand which activity a student means when her keyword rules do not recognise the wording. It only steps in as a fallback and only when it is at least 90% sure. See `docs/RESULTS.md` for the measured effect (65% to 90% on unseen wording).
+- The **Heat Risk Index** and the **mission generator** are transparent formulas and rules over measured data, not trained models, so every number can be explained. Insights are rule-generated and show their evidence, confidence and method.
+- **Hawa is a guided script plus the classifier above, not a large language model**, and she says so.
+- **Voice**: speech output and recognition use the browser's own speech features (Chrome/Edge send audio to their speech service). "Whisper Flow" cleans voice input with built-in rules; an optional language-model endpoint (`GROQ_API_KEY`, dev server) is supported.
+- **Translation**: for Hindi chats the student's messages and the guide's replies go through the free MyMemory translation service. The app warns users not to type personal details. Translation can be wrong.
+
+## Tests and results
+
+`npm test` runs 55 automated tests (guide, mission generator, air-alert checker, voice cleaner, map extents, certificate PDF, report). `npm run eval` measures the guide and the mission generator on a labelled set and rewrites [`docs/RESULTS.md`](docs/RESULTS.md). The one-page write-up is [`docs/WRITEUP.md`](docs/WRITEUP.md) and the demo-video script is [`docs/VIDEO_SCRIPT.md`](docs/VIDEO_SCRIPT.md).
 
 ## Known limits
 
 - Air readings are a ~11 km model, so neighbouring units can share the same value, and the source tag can be wrong.
-- The proof of work is hidden in the app's screens, but it is stored in the review note, which the shared database's existing functions return to every member of an organization. Keeping it truly organization-only needs a database change (for example an organization-only table).
-- Certificate PDFs use standard fonts, so names in Urdu script appear as question marks. Use Latin spellings.
-- Task sites in the chat guide are examples.
+- Greenery explains only about 2% of the surface-temperature differences in our data (R-squared 0.019), and only three hot seasons are loaded. Treat greening effects as small and uncertain.
+- The Heat Risk Index is a relative ranking and has not yet been checked against ground thermometer readings. There has been no pilot with real students yet.
+- The description an organization writes for a certificate is stored in the review note, which the shared database's existing functions return to every member of the organization.
+- Joining an organization needs no invite code, so coordinators should remove people who should not be on the roster.
 - Prototype: not medical advice.
 
 ## Layout
