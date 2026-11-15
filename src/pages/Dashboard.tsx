@@ -19,12 +19,12 @@ const ALL_TABS = [
   { id: 'explore', label: 'Map explorer', icon: MapIcon, roles: ['org', 'volunteer'] },
   { id: 'air', label: 'Air quality', icon: Droplet, roles: ['org', 'volunteer'] },
   { id: 'volunteer', label: 'Volunteer hub', icon: Sparkle, roles: ['volunteer'] },
-  { id: 'compare', label: 'Compare & rank', icon: Compare, roles: ['org', 'volunteer'] },
-  { id: 'trends', label: 'Climate trends', icon: Trend, roles: ['org', 'volunteer'] },
-  { id: 'scenarios', label: 'Scenario lab', icon: Sliders, roles: ['org', 'volunteer'] },
+  { id: 'compare', label: 'Compare & rank', icon: Compare, roles: ['org'] },
+  { id: 'trends', label: 'Climate trends', icon: Trend, roles: ['org'] },
+  { id: 'scenarios', label: 'Scenario lab', icon: Sliders, roles: ['org'] },
   { id: 'org', label: 'Org portal', icon: Satellite, roles: ['org'] },
-  { id: 'report', label: 'Report', icon: Doc, roles: ['org', 'volunteer'] },
-  { id: 'sources', label: 'Data & sources', icon: Table, roles: ['org', 'volunteer'] },
+  { id: 'report', label: 'Report', icon: Doc, roles: ['org'] },
+  { id: 'sources', label: 'Data & sources', icon: Table, roles: ['org'] },
 ] as const;
 
 export function Dashboard({ route, go }: { route: Route; go: Go }) {
