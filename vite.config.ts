@@ -25,7 +25,7 @@ function cleanSpeech(key: string): Plugin {
 // Static single-page app: relative base so it can be hosted anywhere (Netlify, GitHub Pages, S3…).
 export default defineConfig(({ mode }) => ({
   base: './',
-  plugins: [react(), cleanSpeech(loadEnv(mode, process.cwd(), '').GROQ_API_KEY ?? '')],
+  plugins: [react(), cleanSpeech(loadEnv(mode, '.', '').GROQ_API_KEY ?? '')],
   build: {
     chunkSizeWarningLimit: 900,
     rollupOptions: {
