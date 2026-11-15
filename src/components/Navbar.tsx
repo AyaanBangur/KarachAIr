@@ -2,10 +2,11 @@ import { BrandLogo } from './BrandLogo';
 import { OrgLogo } from './OrgLogo';
 import { hrefFor } from '../lib/hooks';
 import { useAuth } from '../lib/auth';
+import { clearChats } from '../lib/chatStore';
 
 export function Navbar() {
   const { session, logout, leaveOrg } = useAuth();
-  const signOut = () => logout();
+  const signOut = () => { clearChats(); logout(); }; // the next sign-in starts a fresh, spoken greeting
   return (
     <header className="nav nav-solid">
       <div className="nav-inner container-wide">

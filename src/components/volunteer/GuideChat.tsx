@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cleanTranscript } from '../../lib/whisperFlow';
 import { mapsDirections, mapsView } from '../../lib/maps';
-import { loadChat, saveChat } from '../../lib/chatStore';
+import { isLive, loadChat, markLive, saveChat } from '../../lib/chatStore';
 import { BOT_NAME, areaOf, onDecision, respond, startChat, typeOf, type AirInfo, type BotMsg, type GCtx, type GState, type Task, type TaskView } from '../../lib/guide';
 import { LANGS, langOf, translate } from '../../lib/translate';
 import { airBand, classifyCause } from '../../lib/air';
@@ -51,7 +51,7 @@ const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms))
 /** The volunteer guide chat: rule-based, scripted, optional voice, microphone and translation. */
 export function GuideChat({ air, weather, name, tasks, userKey, active = true, onAccept }: { /** false while another section of the hub is showing (the chat stays alive but quiet) */ active?: boolean; /** identifies the volunteer, so their chat is kept while they visit other tabs */ userKey: string; air: AirState; weather: LiveWeather | null; /** first name of the account holder */ name: string; /** tasks generated from live data and the report */ tasks: Task[]; onAccept: (task: Task, nick: string) => string | null }) {
   // a chat the volunteer already started (before they went to another tab) is restored instead of starting over
-  const savedChat = useRef(loadChat<Item, GState>(userKey));
+  const savedChat = useRef(isLive(userKey) ? loadChat<Item, GState>(userKey) : null);
   const [items, setItems] = useState<Item[]>(() => savedChat.current?.items ?? []);
   const [typing, setTyping] = useState(false);
   const [view, setView] = useState<GState | null>(() => savedChat.current?.state ?? null);
@@ -169,7 +169,7 @@ export function GuideChat({ air, weather, name, tasks, userKey, active = true, o
   // begin() fully resets the chat, so a development-mode double mount simply starts it again cleanly.
   // The opening mentions today's air, so wait until the live air data has loaded (or failed) before starting.
   const airReady = air.status !== 'loading';
-  useEffect(() => { if (!airReady) return; if (!savedChat.current) begin(); return () => { gen.current++; stopSpeech(); stopMic(); }; }, [airReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!airReady) return; if (!savedChat.current) { markLive(userKey); if (supported) { setHandsFree(true); hf.current = true; } begin(); } return () => { gen.current++; stopSpeech(); stopMic(); }; }, [airReady]); // eslint-disable-line react-hooks/exhaustive-deps
   // save the chat after every change, and when leaving the tab also keep any replies that were still being typed out
   const itemsRef = useRef(items); itemsRef.current = items;
   useEffect(() => { if (stateRef.current) saveChat(userKey, { items, state: stateRef.current }); }, [items, view, userKey]);

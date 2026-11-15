@@ -12,6 +12,7 @@ const AirTab = lazy(() => import('../components/air/AirTab').then((m) => ({ defa
 import { Compare, Doc, Droplet, MapIcon, Satellite, Sparkle, Table, Trend } from '../components/icons';
 const SourcesPanel = lazy(() => import('../components/SourcesPanel').then((m) => ({ default: m.SourcesPanel })));
 import { useAuth } from '../lib/auth';
+import { firstLanding } from '../lib/chatStore';
 const OrgConsole = lazy(() => import('../components/org/OrgConsole').then((m) => ({ default: m.OrgConsole })));
 
 const ALL_TABS = [
@@ -45,6 +46,8 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // right after signing in, a volunteer lands on the chat guide, where Hawa greets them out loud
+  useEffect(() => { if (role === 'volunteer' && firstLanding()) go({ tab: 'volunteer' }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { document.title = `${TABS.find((t) => t.id === tab)!.label} · KarachAir`; return () => { document.title = 'KarachAir, Karachi heat and clean-air action'; }; }, [tab]);
 
   const select = (id: string | null) => go({ tab: 'explore', unit: id ?? undefined });

@@ -1,14 +1,26 @@
-# Demo video: 2 minutes or less (the Veritas structure)
+# Demo video script: 2 minutes or less (Veritas structure)
 
-Record the screen at https://karachair.netlify.app with your voice over it. No editing needed. Upload to YouTube as unlisted (or Google Drive with "anyone with the link can view") and open the link in a private window to check it works.
+**Rules from the Hacker Guide:** up to 2 minutes. A screen recording with your voice over it is enough. Upload to YouTube as **unlisted** (or share from Google Drive with "anyone with the link can view"), then open the link in a private window to check it plays. Put the link in the submission form.
 
-| Time | Show | Say |
+**Length check:** the spoken words below are about 260, which is about 2 minutes at a calm pace. Read it once with a timer before recording. If you run over, cut the sentences marked (optional).
+
+**Before you record:** open https://karachair.netlify.app signed in as a volunteer (use "Try it as a guest volunteer"). Test your demo phrase first, because missions depend on live data. If "darakht lagao" gives no mission, use "plant trees". On a day with dirty air you can use "gari ka engine band karo" instead.
+
+| Time | On screen | Say |
 |---|---|---|
-| **0:00 to 0:15** The problem | Home page | "Karachi's air and heat hurt people who can't protect themselves. Students want to help but don't know where or what to do. KarachAir tells them." |
-| **0:15 to 1:15** The demo | Sign in as a volunteer, open **Chat guide**. Type "Clifton", then "gari ka engine band karo" (Roman Urdu, not a button). Show the mission cards with the reason, accept one, click **Open in Google Maps**. Then switch to an organization account (or the Judge view) and show the **Report** with the line graphs and the "Missions volunteers are being offered" table. | "A student types in their own words. Hawa, our trained model, works out the activity even in Roman Urdu and offers missions for the places that need help most, ranked by live air, heat and satellite data. The organization's report shows the same list and updates as the data changes." |
-| **1:15 to 1:45** How it works | `docs/RESULTS.md` (the results table) | "We wrote 483 sentences in English and Roman Urdu, split them so no sentence is on both sides, and tested on 249 the model never saw. Guessing scores 23%, our old keyword rules 55%, our trained model 85%. On Roman Urdu, the rules get 40% and the model 83%." |
-| **1:45 to 2:00** Next steps | Closing card | "Every step is counted: residents who live where help is needed, verified hours, and priority areas covered, so an NGO can see where to send people next. Next stage: a pilot with real students, and checking our heat ranking against thermometers. KarachAir: live data turned into safe action." |
+| **0:00 to 0:15** The problem | Login page, then the opening dashboard | "Karachi has some of the hottest, most polluted neighbourhoods in the region. Students want to help, but they can't tell where help is needed or what is safe to do. KarachAir answers one question: where should a student volunteer today, and is it safe?" |
+| **0:15 to 1:15** The demo (real input to result) | Volunteer hub, **Chat guide**. Type "New Karachi". Then type "darakht lagao" (Roman Urdu for "plant trees"). Mission cards appear. Point at the **reason line** (heat rank, live PM2.5, green space per person) and the "adult required" / lock label. Click **Accept**, then **Open in Google Maps**. Switch to the organization account: **Org portal** to verify the hours, then **Report** and the **Impact** numbers. | "A student types in their own words. This is Roman Urdu, not a button. Hawa, our trained model, understands it and offers missions for that neighbourhood, with the reason from live air, live heat and NASA satellite data. Outdoor missions need an adult and lock if the air is hazardous. The student accepts and gets directions. Then the organization verifies the two hours, the student gets a certificate, and the report shows where help is needed and how many people live there, so an NGO can decide where to send people next." |
+| **1:15 to 1:45** How it works | `docs/RESULTS.md` results table | "Our data is NASA satellite heat, live air quality and population. For Hawa we wrote 483 sentences in English and Roman Urdu, and split them so no sentence is in both training and test. We tested on 249 sentences the model never saw. Guessing scores 23 percent. Our old keyword rules score 55. Our trained model scores 85. On Roman Urdu, rules get 40 percent and the model 83." |
+| **1:45 to 2:00** Next steps | Closing card with the name and link | "One limitation: we wrote those sentences ourselves, so real students will type harder things. Next, we'd pilot with a school and an NGO and test Hawa on real messages. KarachAir: live data turned into safe action." |
 
-Impact line to add if you have time: on the opening screen, point at "Who volunteer work can reach today" and read the residents number. `docs/EXAMPLE.md` is the one-neighbourhood walkthrough.
+## Checklist against the guide
+- [ ] 2 minutes or less (time it)
+- [ ] The problem: who it is for and why it matters (about 15 seconds)
+- [ ] The demo: a real input going in and the result coming out (about 60 seconds)
+- [ ] How it works: your data, your model, how it compares to the baseline (about 30 seconds)
+- [ ] Next steps: one limitation and what you'd do next (about 15 seconds)
+- [ ] Screen recording with your voice over it
+- [ ] Uploaded as YouTube unlisted or a Google Drive share, and opened in a private window to confirm
+- [ ] Link pasted in the submission form
 
-Tip: say the three numbers (23%, 55%, 85%) clearly. Judges look for a baseline, a result on unseen data, and where it fails.
+Tip: say the three numbers (23, 55, 85) clearly. Judges look for a baseline, a result on unseen data, and where it fails.
