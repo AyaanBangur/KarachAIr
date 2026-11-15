@@ -32,8 +32,8 @@ export function UnitPanel({ id, onClose, onCompare, onScenario, inCompare, weath
   const dayDelta = l ? l.day - medians.lstDay : null;
 
   const download = () => {
-    const md = unitBrief(u, s, data.meta, { medians, opportunities: opps.map((o) => ({ title: o.title, why: o.why })), confidence: `${conf.level} — ${conf.reason}` });
-    downloadText(`terrawatch-${p.id}-brief.md`, md, 'text/markdown');
+    const md = unitBrief(u, s, data.meta, { medians, opportunities: opps.map((o) => ({ title: o.title, why: o.why })), confidence: `${conf.level}, ${conf.reason}` });
+    downloadText(`karachair-${p.id}-brief.md`, md, 'text/markdown');
     setDone(true); setTimeout(() => setDone(false), 2200);
   };
 
@@ -76,17 +76,17 @@ export function UnitPanel({ id, onClose, onCompare, onScenario, inCompare, weath
         <StatTile icon={<Thermometer />} tone="var(--c-heat)" label="Afternoon surface temp" value={fmtTemp(l?.day)} sub={dayDelta != null ? `${fmtDelta(dayDelta)}°C vs city median` : undefined} />
         <StatTile icon={<Moon />} tone="var(--c-heat)" label="Night surface temp" value={fmtTemp(l?.night)} sub={l ? `${fmtDelta(l.night - medians.lstNight)}°C vs median` : undefined} />
         <StatTile icon={<Flame />} tone="var(--c-alert)" label="Hottest 8-day composite" value={fmtTemp(l?.peak8Day?.value)} sub={l?.peak8Day?.date} />
-        <StatTile icon={<Leaf />} tone="var(--c-veg)" label="Vegetation (NDVI)" value={p.ndvi?.toFixed(2) ?? '—'} sub={p.ndvi != null ? `city median ${medians.ndvi.toFixed(2)}` : undefined} />
+        <StatTile icon={<Leaf />} tone="var(--c-veg)" label="Vegetation (NDVI)" value={p.ndvi?.toFixed(2) ?? 'n/a'} sub={p.ndvi != null ? `city median ${medians.ndvi.toFixed(2)}` : undefined} />
         <StatTile icon={<Users />} tone="var(--c-pop)" label="Population (2020 model)" value={fmtCompact(p.population)} sub={`${fmtInt(p.popDensity)} per km²`} />
         <StatTile icon={<Cross />} tone="var(--c-cool)" label="Health facilities" value={fmtInt(p.infra?.healthFacilities)} sub={p.infra?.healthPer100k != null ? `${p.infra.healthPer100k.toFixed(1)} per 100k · OSM-mapped` : undefined} />
-        <StatTile icon={<Droplet />} tone="var(--c-veg)" label="Mapped green space" value={p.infra ? `${(p.infra.greenShare * 100).toFixed(1)}%` : '—'} sub={p.infra?.greenM2PerPerson != null ? `${p.infra.greenM2PerPerson.toFixed(1)} m² per person · OSM` : undefined} />
-        <StatTile icon={<Thermometer />} tone="var(--c-warn)" label="Hot-season max air temp" value={fmtTemp(p.air?.hotSeasonTmax)} sub={p.air ? `ERA5-Land ~9 km · ${p.air.days40PerYear ?? '—'} days ≥40°C/yr` : undefined} />
+        <StatTile icon={<Droplet />} tone="var(--c-veg)" label="Mapped green space" value={p.infra ? `${(p.infra.greenShare * 100).toFixed(1)}%` : 'n/a'} sub={p.infra?.greenM2PerPerson != null ? `${p.infra.greenM2PerPerson.toFixed(1)} m² per person · OSM` : undefined} />
+        <StatTile icon={<Thermometer />} tone="var(--c-warn)" label="Hot-season max air temp" value={fmtTemp(p.air?.hotSeasonTmax)} sub={p.air ? `ERA5-Land ~9 km · ${p.air.days40PerYear ?? 'n/a'} days ≥40°C/yr` : undefined} />
       </div>
 
       {l && series.filter((v) => v != null).length > 1 && (
         <div className="up-season card card-pad">
-          <div className="card-title" style={{ marginBottom: 6 }}><div><h3>Season by season</h3><p>Afternoon surface temp each May–June</p></div><Sparkline values={series} color={thermal(0.78)} width={150} height={40} /></div>
-          <div className="season-chips">{years.map((y) => <span key={y} className="chip mono" title={`${y} season`}>{y}<b>{l.byYear[y] != null ? l.byYear[y]!.toFixed(1) : '—'}</b></span>)}</div>
+          <div className="card-title" style={{ marginBottom: 6 }}><div><h3>Season by season</h3><p>Afternoon surface temp each May to June</p></div><Sparkline values={series} color={thermal(0.78)} width={150} height={40} /></div>
+          <div className="season-chips">{years.map((y) => <span key={y} className="chip mono" title={`${y} season`}>{y}<b>{l.byYear[y] != null ? l.byYear[y]!.toFixed(1) : 'n/a'}</b></span>)}</div>
         </div>
       )}
 

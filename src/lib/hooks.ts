@@ -3,7 +3,7 @@ import type { UnitFeature } from './types';
 
 // ------------------------------------------------------------------ hash router
 // #/login · #/login/volunteer · #/login/organization · #/dashboard/<tab>?unit=<id>
-export const TAB_IDS = ['explore', 'compare', 'trends', 'scenarios', 'air', 'report', 'volunteer', 'org'] as const;
+export const TAB_IDS = ['explore', 'compare', 'trends', 'scenarios', 'air', 'report', 'volunteer', 'org', 'sources'] as const;
 export interface Route { page: 'dashboard' | 'login'; tab: string; unit: string | null }
 export function parseHash(h: string): Route {
   const [path, query = ''] = h.replace(/^#\/?/, '').split('?');
@@ -65,8 +65,24 @@ export interface LiveCurrent { temp: number; feels: number; humidity: number; wi
 export interface LiveDay { date: string; tmax: number; feelsMax: number }
 export interface LiveWeather { byUnit: Record<string, { current: LiveCurrent; daily: LiveDay[] }>; fetchedAt: number }
 
+/** Live feeds refresh on their own every 10 minutes (and whenever the tab becomes visible again after a long wait). */
+export const LIVE_REFRESH_MS = 10 * 60 * 1000;
+function useTicker() {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    let last = Date.now();
+    const bump = () => { last = Date.now(); setTick((t) => t + 1); };
+    const id = window.setInterval(bump, LIVE_REFRESH_MS);
+    const vis = () => { if (document.visibilityState === 'visible' && Date.now() - last > LIVE_REFRESH_MS) bump(); };
+    document.addEventListener('visibilitychange', vis);
+    return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', vis); };
+  }, []);
+  return tick;
+}
+
 export function useLiveWeather(units: UnitFeature[]) {
   const [state, setState] = useState<{ status: 'loading' | 'ok' | 'error'; data: LiveWeather | null }>({ status: 'loading', data: null });
+  const auto = useTicker();
   useEffect(() => {
     const ctrl = new AbortController();
     const lat = units.map((u) => u.properties.centroid[1].toFixed(3)).join(',');
@@ -85,10 +101,10 @@ export function useLiveWeather(units: UnitFeature[]) {
         });
         setState({ status: 'ok', data: { byUnit, fetchedAt: Date.now() } });
       })
-      .catch((e) => { if (e.name !== 'AbortError') setState({ status: 'error', data: null }); });
+      .catch((e) => { if (e.name !== 'AbortError') setState((s) => (s.data ? s : { status: 'error', data: null })); });
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [units.length]);
+  }, [units.length, auto]);
   return state;
 }
 
@@ -100,9 +116,10 @@ export type AirState = { status: 'loading' | 'ok' | 'error'; data: LiveAir | nul
 export function useLiveAir(units: UnitFeature[]): AirState {
   const [state, setState] = useState<Omit<AirState, 'reload'>>({ status: 'loading', data: null });
   const [tick, setTick] = useState(0);
+  const auto = useTicker();
   useEffect(() => {
     const ctrl = new AbortController();
-    setState((s) => ({ ...s, status: 'loading' }));
+    setState((s) => (s.data ? s : { ...s, status: 'loading' })); // keep showing the last reading while a refresh runs
     const lat = units.map((u) => u.properties.centroid[1].toFixed(3)).join(',');
     const lon = units.map((u) => u.properties.centroid[0].toFixed(3)).join(',');
     const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm2_5,pm10,nitrogen_dioxide,us_aqi&timezone=Asia%2FKarachi`;
@@ -120,10 +137,10 @@ export function useLiveAir(units: UnitFeature[]): AirState {
         if (!Object.keys(byUnit).length) throw new Error('no data');
         setState({ status: 'ok', data: { byUnit, fetchedAt: Date.now() } });
       })
-      .catch((e) => { if (e.name !== 'AbortError') setState({ status: 'error', data: null }); });
+      .catch((e) => { if (e.name !== 'AbortError') setState((s) => (s.data ? s : { status: 'error', data: null })); });
     return () => ctrl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [units.length, tick]);
+  }, [units.length, tick, auto]);
   return { ...state, reload: () => setTick((t) => t + 1) };
 }
 

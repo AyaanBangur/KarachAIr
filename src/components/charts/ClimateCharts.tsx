@@ -37,10 +37,10 @@ export function AnomalyChart({ climate, height = 300, compact = false }: { clima
   const tr = climate.city.trend;
   return (
     <ChartFrame title="Karachi is warming" height={height}
-      legend={<Legend items={[{ color: WARM, label: 'Warmer than 1991–2020 mean' }, { color: COOL, label: 'Cooler' }, { color: '#f2f0e6', label: `Linear trend ${tr.from}–${tr.to}`, kind: 'line' }]} />}
-      subtitle={`Annual mean of daily maximum temperature vs the ${climate.city.baseline[0]}–${climate.city.baseline[1]} average (${climate.city.baselineMeanTmax.toFixed(1)}°C). Trend since ${tr.from}: ${fmtDelta(tr.annualMeanTmaxPerDecade, 2)} ± ${tr.annualCi95.toFixed(2)}°C per decade.`}
+      legend={<Legend items={[{ color: WARM, label: 'Warmer than 1991 to 2020 mean' }, { color: COOL, label: 'Cooler' }, { color: '#f2f0e6', label: `Linear trend ${tr.from} to ${tr.to}`, kind: 'line' }]} />}
+      subtitle={`Annual mean of daily maximum temperature vs the ${climate.city.baseline[0]} to ${climate.city.baseline[1]} average (${climate.city.baselineMeanTmax.toFixed(1)}°C). Trend since ${tr.from}: ${fmtDelta(tr.annualMeanTmaxPerDecade, 2)} ± ${tr.annualCi95.toFixed(2)}°C per decade.`}
       table={{ head: ['Year', 'Mean Tmax (°C)', 'Anomaly (°C)'], rows: rows.map((r) => [r.year, r.meanTmax.toFixed(2), fmtDelta(r.anomaly, 2)]) }}
-      source="ECMWF ERA5-Land reanalysis (~9 km grid) via Open-Meteo — model data, not a station record">
+      source="ECMWF ERA5-Land reanalysis (~9 km grid) via Open-Meteo, model data, not a station record">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={rows} margin={{ top: 10, right: 12, left: -8, bottom: 0 }}>
           <CartesianGrid {...GRID} />
@@ -50,7 +50,7 @@ export function AnomalyChart({ climate, height = 300, compact = false }: { clima
           <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} content={({ active, payload }) => {
             if (!active || !payload?.length) return null;
             const d = payload[0].payload as (typeof rows)[number];
-            return <TooltipBox title={d.year} rows={[{ color: d.anomaly >= 0 ? WARM : COOL, label: 'Vs 1991–2020 mean', value: `${fmtDelta(d.anomaly, 2)}°C` }, { label: 'Mean daily max', value: `${d.meanTmax.toFixed(2)}°C`, dim: true }]} />;
+            return <TooltipBox title={d.year} rows={[{ color: d.anomaly >= 0 ? WARM : COOL, label: 'Vs 1991 to 2020 mean', value: `${fmtDelta(d.anomaly, 2)}°C` }, { label: 'Mean daily max', value: `${d.meanTmax.toFixed(2)}°C`, dim: true }]} />;
           }} />
           <Bar dataKey="anomaly" maxBarSize={9} shape={<PolarityBar />} isAnimationActive={false} />
           <Line dataKey="trend" stroke="#f2f0e6" strokeWidth={2} dot={false} strokeLinecap="round" isAnimationActive={false} />
@@ -75,9 +75,9 @@ export function ProfileChart({ climate, height = 320 }: { climate: ClimateFile; 
   const data: any[] = profile.map((r) => ({ ...r, band: [r.p10, r.p90] as [number, number] }));
   return (
     <ChartFrame title="The hot season, day by day" height={height}
-      legend={<Legend items={[{ color: '#959c90', label: `Normal ${city.baseline[0]}–${city.baseline[1]}`, kind: 'line' }, ...sorted.filter((y) => on[y]).map((y) => ({ color: yearColor[y], label: String(y), kind: 'line' as const }))]} />}
-      subtitle={`Daily maximum temperature, 1 Apr – 31 Jul. The grey band is the ${city.baseline[0]}–${city.baseline[1]} 10th–90th percentile range; the line inside is the normal.`}
-      table={{ head: ['Date', 'Normal', 'P10', 'P90', ...sorted.map(String)], rows: profile.filter((_, i) => i % 5 === 0).map((r) => [mdLabel(r.md), r.normal, r.p10, r.p90, ...sorted.map((y) => (r[`y${y}`] as number) ?? '—')]) }}
+      legend={<Legend items={[{ color: '#959c90', label: `Normal ${city.baseline[0]} to ${city.baseline[1]}`, kind: 'line' }, ...sorted.filter((y) => on[y]).map((y) => ({ color: yearColor[y], label: String(y), kind: 'line' as const }))]} />}
+      subtitle={`Daily maximum temperature, 1 Apr to 31 Jul. The grey band is the ${city.baseline[0]} to ${city.baseline[1]} 10th to 90th percentile range; the line inside is the normal.`}
+      table={{ head: ['Date', 'Normal', 'P10', 'P90', ...sorted.map(String)], rows: profile.filter((_, i) => i % 5 === 0).map((r) => [mdLabel(r.md), r.normal, r.p10, r.p90, ...sorted.map((y) => (r[`y${y}`] as number) ?? 'n/a')]) }}
       aside={<div className="chip-row">{sorted.map((y) => <button key={y} className={`chip chip-btn ${on[y] ? 'on' : ''}`} aria-pressed={on[y]} onClick={() => setOn((s) => ({ ...s, [y]: !s[y] }))}><i className="dot" style={{ color: yearColor[y] }} />{y}</button>)}</div>}
       source="ECMWF ERA5-Land via Open-Meteo (~9 km grid, central Karachi)">
       <ResponsiveContainer width="100%" height="100%">
@@ -89,7 +89,7 @@ export function ProfileChart({ climate, height = 320 }: { climate: ClimateFile; 
             if (!active || !payload?.length) return null;
             const d = payload[0].payload as Record<string, number | string | null>;
             return <TooltipBox title={mdLabel(String(d.md))} rows={[
-              { label: 'Normal', value: `${Number(d.normal).toFixed(1)}°C`, dim: true }, { label: 'P10–P90', value: `${Number(d.p10).toFixed(0)}–${Number(d.p90).toFixed(0)}°C`, dim: true },
+              { label: 'Normal', value: `${Number(d.normal).toFixed(1)}°C`, dim: true }, { label: 'P10 to P90', value: `${Number(d.p10).toFixed(0)} to ${Number(d.p90).toFixed(0)}°C`, dim: true },
               ...sorted.filter((y) => on[y] && d[`y${y}`] != null).map((y) => ({ color: yearColor[y], label: String(y), value: `${d[`y${y}`]}°C` })),
             ]} />;
           }} />
@@ -113,7 +113,7 @@ export function ExposureCard({ meta, height = 260 }: { meta: MetaFile; height?: 
   return (
     <ChartFrame title="Who lives in the heat?" height={height}
       subtitle="Modelled residents by the average afternoon surface temperature of the 1 km area they live in (hot-season mean)."
-      table={{ head: ['Surface temp bin (°C)', 'Residents'], rows: bins.map((b) => [`${b.lst}–${b.lst + 1}`, fmtInt(b.people)]) }}
+      table={{ head: ['Surface temp bin (°C)', 'Residents'], rows: bins.map((b) => [`${b.lst} to ${b.lst + 1}`, fmtInt(b.people)]) }}
       source="WorldPop 2020 (UN-adjusted) × NASA MODIS/Aqua LST">
       <div className="exposure-head">
         <div><div className="big-num">{fmtCompact(above)}</div><div className="muted" style={{ fontSize: 12.5 }}>residents (<b>{((above / total) * 100).toFixed(0)}%</b>) live where afternoon surface temp ≥ <b>{thr}°C</b></div></div>
@@ -128,7 +128,7 @@ export function ExposureCard({ meta, height = 260 }: { meta: MetaFile; height?: 
             <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} content={({ active, payload }) => {
               if (!active || !payload?.length) return null;
               const d = payload[0].payload as { lst: number; people: number };
-              return <TooltipBox title={`${d.lst}–${d.lst + 1}°C`} rows={[{ color: thermal((d.lst - lo) / rng), label: 'Residents', value: fmtInt(d.people) }, { label: 'Share of modelled pop.', value: `${((d.people / total) * 100).toFixed(1)}%`, dim: true }]} />;
+              return <TooltipBox title={`${d.lst} to ${d.lst + 1}°C`} rows={[{ color: thermal((d.lst - lo) / rng), label: 'Residents', value: fmtInt(d.people) }, { label: 'Share of modelled pop.', value: `${((d.people / total) * 100).toFixed(1)}%`, dim: true }]} />;
             }} />
             <Bar dataKey="people" maxBarSize={22} radius={[4, 4, 0, 0]} isAnimationActive={false}
               // eslint-disable-next-line @typescript-eslint/no-explicit-any

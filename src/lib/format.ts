@@ -1,14 +1,14 @@
-export const fmtInt = (v: number | null | undefined) => (v == null || Number.isNaN(v) ? '—' : Math.round(v).toLocaleString('en-US'));
-export const fmtDec = (v: number | null | undefined, d = 1) => (v == null || Number.isNaN(v) ? '—' : v.toFixed(d));
-export const fmtTemp = (v: number | null | undefined, d = 1) => (v == null || Number.isNaN(v) ? '—' : `${v.toFixed(d)}°C`);
+export const fmtInt = (v: number | null | undefined) => (v == null || Number.isNaN(v) ? 'n/a' : Math.round(v).toLocaleString('en-US'));
+export const fmtDec = (v: number | null | undefined, d = 1) => (v == null || Number.isNaN(v) ? 'n/a' : v.toFixed(d));
+export const fmtTemp = (v: number | null | undefined, d = 1) => (v == null || Number.isNaN(v) ? 'n/a' : `${v.toFixed(d)}°C`);
 export const fmtDelta = (v: number | null | undefined, d = 1, unit = '') => {
-  if (v == null || Number.isNaN(v)) return '—';
+  if (v == null || Number.isNaN(v)) return 'n/a';
   const s = v > 0 ? '+' : v < 0 ? '−' : '±';
   return `${s}${Math.abs(v).toFixed(d)}${unit}`;
 };
-export const fmtPct = (v: number | null | undefined, d = 0) => (v == null || Number.isNaN(v) ? '—' : `${(v * 100).toFixed(d)}%`);
+export const fmtPct = (v: number | null | undefined, d = 0) => (v == null || Number.isNaN(v) ? 'n/a' : `${(v * 100).toFixed(d)}%`);
 export function fmtCompact(v: number | null | undefined): string {
-  if (v == null || Number.isNaN(v)) return '—';
+  if (v == null || Number.isNaN(v)) return 'n/a';
   const a = Math.abs(v);
   if (a >= 1e6) return `${(v / 1e6).toFixed(a >= 1e7 ? 1 : 2)}M`;
   if (a >= 1e3) return `${(v / 1e3).toFixed(a >= 1e4 ? 0 : 1)}K`;

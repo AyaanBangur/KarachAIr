@@ -7,7 +7,7 @@ import { StatTile } from '../ui';
 import { SafetyGate } from '../service/SafetyGate';
 import { useAirFocus } from './useAirFocus';
 
-const fmt1 = (v: number | null | undefined) => (v == null ? '—' : v.toFixed(1));
+const fmt1 = (v: number | null | undefined) => (v == null ? 'n/a' : v.toFixed(1));
 
 export function AirTab({ air, weather }: { air: AirState; weather: LiveWeather | null }) {
   const { data } = useTerra();
@@ -66,7 +66,7 @@ export function AirTab({ air, weather }: { air: AirState; weather: LiveWeather |
                 <StatTile label="PM10" value={fmt1(reading.pm10)} sub="µg/m³" tone="var(--c-heat)" />
                 <StatTile label="NO₂" value={fmt1(reading.no2)} sub="µg/m³" tone="var(--c-pop)" />
                 <StatTile label="Wind" value={fmt1(wind)} sub="km/h" tone="var(--c-cool)" />
-                <StatTile label="PM2.5 / PM10" value={reading.pm10 > 0 ? (reading.pm25 / reading.pm10).toFixed(2) : '—'} sub="fine share" tone="var(--c-veg)" />
+                <StatTile label="PM2.5 / PM10" value={reading.pm10 > 0 ? (reading.pm25 / reading.pm10).toFixed(2) : 'n/a'} sub="fine share" tone="var(--c-veg)" />
               </div>
             </section>
           </div>

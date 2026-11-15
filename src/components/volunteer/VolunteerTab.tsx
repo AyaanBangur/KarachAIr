@@ -2,10 +2,12 @@ import { useMemo, useState } from 'react';
 import { useTerra } from '../../lib/data';
 import { useAuth } from '../../lib/auth';
 import { SHARED_ENABLED, useLogs } from '../../lib/logs';
+import { toMission } from '../../lib/orgMissions';
+import { generateTasks, priorityTasks, taskToMission } from '../../lib/needs';
 import { useLocalState, type AirState, type LiveWeather } from '../../lib/hooks';
 import { GuideChat } from './GuideChat';
-import { AREAS, areaOf, typeOf, type Task } from '../../lib/guide';
-import { STATUS_TEXT, TIER_NAME, TIME_LABEL, acceptNote, acceptTags, ago, buildMissions, fmtH, gateFor, hourOptions, matchesFilters, missionLocked, parseProof, summarize, type Filters, type Mission } from '../../lib/service';
+import type { Task } from '../../lib/guide';
+import { STATUS_TEXT, TIER_NAME, acceptNote, acceptTags, ago, fmtH, gateFor, matchesFilters, missionLocked, parseProof, summarize, type Filters, type Mission } from '../../lib/service';
 import { useAirFocus } from '../air/useAirFocus';
 import { SafetyGate } from '../service/SafetyGate';
 import { Certificate } from '../service/Certificate';
@@ -16,11 +18,11 @@ import { Alert, Check, Close, Doc, Pin, Sparkle } from '../icons';
 export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWeather | null }) {
   const { data, scores } = useTerra();
   const { session } = useAuth();
-  const { proofs, mine, add, remove, sync, refresh } = useLogs();
+  const { proofs, mine, add, remove, sync, refresh, missions: posted, logs: fieldLogs } = useLogs();
   const focus = useAirFocus(data.units, air);
-  const [view, setView] = useState<'chat' | 'find' | 'record'>('chat');
+  const [view, setView] = useState<'chat' | 'find' | 'notify' | 'record'>('chat');
   const [simulate, setSimulate] = useState(false);
-  const [filters, setFilters] = useState<Filters>({ where: 'any', time: 'any', focus: 'any' });
+  const [filters, setFilters] = useState<Filters>({ where: 'any', focus: 'any' });
   const [skipped, setSkipped] = useState<string[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const [hours, setHours] = useState<number>(1);
@@ -35,8 +37,10 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
   const place = unit?.properties.short ?? 'Karachi';
   const org = session?.org?.name ?? 'your organization';
   const gate = gateFor(focus.reading, simulate, place);
-  const sc = focus.id ? scores.get(focus.id) : undefined;
-  const bank = useMemo(() => buildMissions(unit, focus.reading, sc ? { label: sc.tier.label, rank: sc.rank, of: data.units.length } : null), [unit, focus.reading, sc, data.units.length]);
+  // Every task comes from the data (heat risk, live air, live weather, green space, field-log coverage), never a preset list.
+  const fieldCounts = useMemo(() => { const m = new Map<string, number>(); for (const l of fieldLogs) if (l.unitId) m.set(l.unitId, (m.get(l.unitId) ?? 0) + 1); return m; }, [fieldLogs]);
+  const tasks = useMemo(() => generateTasks({ units: data.units, scores, air: air.data, weather, fieldCounts }), [data.units, scores, air.data, weather, fieldCounts]);
+  const bank = useMemo(() => tasks.filter((t) => t.unitId === unit?.properties.id).map(taskToMission), [tasks, unit]);
   const offers = bank.filter((m) => matchesFilters(m, filters) && !skipped.includes(m.id));
   const mineProofs = useMemo(() => proofs.filter((p) => mine.has(p.id)).map(parseProof), [proofs, mine]);
   const totals = summarize(mineProofs, null);
@@ -60,11 +64,28 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
 
   /** A task accepted in the chat is saved exactly like one accepted from the mission list, so the organization verifies it. */
   const acceptFromChat = (task: Task) => {
-    const area = areaOf(task.area) ?? AREAS[0];
-    const m: Mission = { id: task.id, tier: typeOf(task.type).key, tierLabel: typeOf(task.type).name, hours: task.hours, min: task.hours, max: task.hours, where: task.indoor ? 'indoor' : 'outdoor', focus: 'air', title: task.title, desc: '', trigger: 'Suggested by the volunteer guide' };
+    const m = taskToMission(task);
     const who = name.trim() || 'Volunteer';
-    add({ observedAt: new Date().toISOString(), volunteer: who.slice(0, 60), unitId: area.unitId, place: '', lat: null, lon: null, kind: 'other', tempC: null, measure: null, shade: null,
-      tags: acceptTags({ mission: m, hours: task.hours, student: who, school: school || 'Not given', gate }), notes: acceptNote({ mission: m, hours: task.hours, student: who, school: school || 'Not given', gate }), missionId: null });
+    add({ observedAt: new Date().toISOString(), volunteer: who.slice(0, 60), unitId: task.unitId, place: '', lat: null, lon: null, kind: 'other', tempC: null, measure: null, shade: null,
+      tags: acceptTags({ mission: m, hours: task.hours, student: who, school, gate }), notes: acceptNote({ mission: m, hours: task.hours, student: who, school, gate }), missionId: null });
+  };
+
+  // ---- missions the organization posted: shown under Notifications until the volunteer accepts or declines
+  const [declined, setDeclined] = useLocalState<string[]>('tw-declined-posts', []);
+  const takenKeys = new Set(mineProofs.map((p) => p.missionKey));
+  const notices = posted.filter((p) => p.active).map((p) => ({ p, m: toMission(p, org) }));
+  const open_ = notices.filter(({ p, m }) => !takenKeys.has(m.id) && !declined.includes(p.id));
+  // Priority updates: the places with the worst conditions and greatest need, generated from live data and the report.
+  const alerts = priorityTasks(tasks, 4).filter((t) => !takenKeys.has(t.id) && !declined.includes(t.id));
+  const noticeCount = open_.length + alerts.length;
+  const acceptPosted = (p: { unitId: string | null }, m: Mission) => {
+    setError('');
+    if (!name.trim()) return setError('Your name is missing from your account.');
+    if (missionLocked(m, gate)) return setError('Outdoor missions are locked while the air is hazardous. Try again when the air improves.');
+    if (m.where === 'outdoor' && !window.confirm('This is an outdoor mission. Will an adult be with you?')) return;
+    add({ observedAt: new Date().toISOString(), volunteer: name.trim().slice(0, 60), unitId: p.unitId ?? unit?.properties.id ?? null, place: '', lat: null, lon: null, kind: 'other', tempC: null, measure: null, shade: null,
+      tags: acceptTags({ mission: m, hours: m.hours, student: name, school, gate }), notes: acceptNote({ mission: m, hours: m.hours, student: name, school, gate }), missionId: null });
+    setNotice(`Accepted: ${m.title} (${fmtH(m.hours)} h). ${org} will verify it when you have done the work.`); setView('record');
   };
 
   const certProof = cert ? mineProofs.find((p) => p.id === cert) : null;
@@ -73,11 +94,36 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
     <div className="tab-body container-wide svc">
       <div className="svc-head">
         <div><span className="eyebrow">Volunteer hub</span><h2>Hello, {name.split(' ')[0] || 'volunteer'}.</h2><p className="muted">Filter for a mission, accept the ones you want, and {org} will verify your hours and issue your certificate.</p></div>
-        <Seg<'chat' | 'find' | 'record'> label="Volunteer hub section" value={view} onChange={(v) => { setView(v); setNotice(''); }} options={[{ value: 'chat', label: 'Chat guide' }, { value: 'find', label: 'Find a mission' }, { value: 'record', label: `My record (${mineProofs.length})` }]} />
+        <Seg<'chat' | 'find' | 'notify' | 'record'> label="Volunteer hub section" value={view} onChange={(v) => { setView(v); setNotice(''); setError(''); }} options={[{ value: 'chat', label: 'Chat guide' }, { value: 'find', label: 'Find a mission' }, { value: 'notify', label: `Notifications${noticeCount ? ` (${noticeCount})` : ''}` }, { value: 'record', label: `My record (${mineProofs.length})` }]} />
       </div>
 
       {view === 'chat' ? (
-        <GuideChat air={air} weather={weather} onAccept={acceptFromChat} />
+        <GuideChat air={air} weather={weather} name={name.trim().split(/\s+/)[0] ?? ''} tasks={tasks} onAccept={acceptFromChat} />
+      ) : view === 'notify' ? (
+        <section aria-label="Notifications">
+          {error && <div className="callout" role="alert" style={{ marginBottom: 12 }}><Alert /><span>{error}</span></div>}
+          {alerts.length > 0 && <>
+            <div className="svc-sec-head"><h3>Where help is needed most right now</h3></div>
+            <p className="muted" style={{ margin: '-4px 0 12px' }}>Ranked from live air quality, live heat, and the KarachAir report&rsquo;s heat-risk data. The worst conditions come first.</p>
+            <div className="mission-bank" style={{ marginBottom: 22 }}>{alerts.map((t) => { const m = taskToMission(t); return (
+              <article key={t.id} className={`mcard tier-3 ${missionLocked(m, gate) ? 'locked' : ''}`}>
+                <div className="mcard-chips"><span className="chip mtier">{m.tierLabel} · {t.need}/100</span><span className={`chip mwhere ${m.where}`}>{m.where === 'indoor' ? 'Indoor safe' : 'Adult-supervised'}</span><span className="chip"><Pin />{t.area}</span></div>
+                <span className="mtrigger">Why: {t.reason}</span>
+                <h4>{m.title}</h4><p>{m.desc}</p>
+                <div className="chip-row wrap"><button className="btn btn-primary btn-sm" onClick={() => acceptPosted({ unitId: t.unitId }, m)}><Check />Accept</button><button className="btn btn-sm btn-ghost" onClick={() => setDeclined([...declined, t.id])}><Close />Decline</button></div>
+              </article>); })}</div>
+          </>}
+          <div className="svc-sec-head"><h3>From {org}</h3></div>
+          {open_.length === 0 ? <div className="card card-pad muted">No new missions from {org} right now. When your organization posts one, it appears here.</div> : (
+            <div className="mission-bank">{open_.map(({ p, m }) => (
+              <article key={p.id} className={`mcard tier-2 ${missionLocked(m, gate) ? 'locked' : ''}`}>
+                <div className="mcard-chips"><span className="chip mtier">New · {fmtH(m.hours)} hrs</span><span className={`chip mwhere ${m.where}`}>{m.where === 'indoor' ? 'Indoor safe' : 'Adult-supervised'}</span>{p.unitId && <span className="chip"><Pin />{data.units.find((u) => u.properties.id === p.unitId)?.properties.short ?? ''}</span>}</div>
+                <span className="mtrigger">Posted {ago(p.createdAt)} by {org}</span>
+                <h4>{m.title}</h4><p>{m.desc}</p>
+                <div className="chip-row wrap"><button className="btn btn-primary btn-sm" onClick={() => acceptPosted(p, m)}><Check />Accept</button><button className="btn btn-sm btn-ghost" onClick={() => setDeclined([...declined, p.id])}><Close />Decline</button></div>
+              </article>))}</div>
+          )}
+        </section>
       ) : view === 'find' ? (
         <>
           <SafetyGate place={place} reading={focus.reading} simulate={simulate} onSimulate={setSimulate} />
@@ -92,8 +138,6 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
                 </select></label>
               <label className="pill-field"><span>Where</span>
                 <select className="select" value={filters.where} onChange={(e) => setF('where', e.target.value as Filters['where'])}><option value="any">Indoor or outdoor</option><option value="indoor">Indoor only</option><option value="outdoor">Outdoor (adult-supervised)</option></select></label>
-              <label className="pill-field"><span>Time you have</span>
-                <select className="select" value={filters.time} onChange={(e) => setF('time', e.target.value as Filters['time'])}>{(Object.keys(TIME_LABEL) as Filters['time'][]).map((k) => <option key={k} value={k}>{TIME_LABEL[k]}</option>)}</select></label>
               <label className="pill-field"><span>Focus</span>
                 <select className="select" value={filters.focus} onChange={(e) => setF('focus', e.target.value as Filters['focus'])}><option value="any">Clean air or heat</option><option value="air">Clean air</option><option value="heat">Heat &amp; shade</option></select></label>
             </div>
@@ -119,14 +163,13 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
                     <p>{m.desc}</p>
                     {open === m.id ? (
                       <div className="accept-box">
-                        <label className="pill-field"><span>How many hours will you commit?</span>
-                          <select className="select" value={hours} onChange={(e) => setHours(parseFloat(e.target.value))}>{hourOptions(m).map((h) => <option key={h} value={h}>{fmtH(h)} hour{h === 1 ? '' : 's'}</option>)}</select></label>
+                        <p className="muted tiny">Each mission is {fmtH(m.hours)} hours.</p>
                         {m.where === 'outdoor' && <label className="check-row"><input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} /><span>An adult will be with me for this outdoor mission.</span></label>}
                         <div className="chip-row wrap"><button className="btn btn-primary btn-sm" onClick={() => accept(m)}><Check />Accept mission</button><button className="btn btn-sm btn-ghost" onClick={() => setOpen(null)}>Cancel</button></div>
                       </div>
                     ) : (
                       <div className="mcard-actions">
-                        <button className="btn btn-primary btn-sm" disabled={lk} onClick={() => startAccept(m)}>{lk ? '🔒 Locked — hazardous air' : 'Accept this mission'}</button>
+                        <button className="btn btn-primary btn-sm" disabled={lk} onClick={() => startAccept(m)}>{lk ? '🔒 Locked, hazardous air' : 'Accept this mission'}</button>
                         <button className="btn btn-sm btn-ghost" onClick={() => setSkipped([...skipped, m.id])}>Not for me</button>
                       </div>
                     )}

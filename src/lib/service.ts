@@ -2,7 +2,6 @@
 // -> the volunteer's record shows the verified hours and a certificate. Volunteers never submit or see the proof.
 // Accepted missions are stored as ordinary logs (kind "other") tagged `volunteer-mission`, so the shared database works
 // unchanged. The organization's verification (signer, verified hours, proof) lives in the log's review note.
-import type { UnitFeature } from './types';
 import type { VolunteerLog } from './logs';
 import { airBand, type AirBand } from './air';
 import type { LiveAirReading } from './hooks';
@@ -26,47 +25,21 @@ export function gateFor(reading: LiveAirReading | null, simulate: boolean, place
     : { band, pm25: reading.pm25, aqi: reading.aqi, simulated: false, outdoorOpen: false, chip: 'OUTDOOR MISSIONS LOCKED · HAZARDOUS AIR', text: `PM2.5 in ${place}${aqi} is hazardous, so outdoor missions are locked. Indoor missions still count.` };
 }
 
-// ------------------------------------------------------------------ mission catalogue (rule-based offers)
+// ------------------------------------------------------------------ missions (generated from the report's data, see needs.ts)
 export type Focus = 'air' | 'heat';
 export interface Mission {
   id: string; tier: string; tierLabel: string; hours: number; min: number; max: number;
   where: 'indoor' | 'outdoor'; focus: Focus; title: string; desc: string; trigger: string;
 }
 
-export const MISSION_BASE: Omit<Mission, 'trigger'>[] = [
-  { id: 'kits', tier: '1', tierLabel: 'Tier 1: Quick Action', hours: 0.5, min: 0.5, max: 1.5, where: 'indoor', focus: 'air', title: 'Prep Indoor N95 Mask & Urdu Health Kits', desc: 'Assemble 25 N95 mask packets and bilingual Urdu/English asthma alert cards inside the school auditorium before dismissal.' },
-  { id: 'lesson', tier: '1', tierLabel: 'Tier 1: Quick Action', hours: 1, min: 0.5, max: 2, where: 'indoor', focus: 'air', title: 'Teach a 10-Minute Clean-Air Lesson', desc: 'Show a younger class how to read the air-quality colours and what to do on a hazardous day, using the colour-coded health cards.' },
-  { id: 'desk', tier: '2', tierLabel: 'Tier 2: Field Audit', hours: 1.5, min: 1, max: 3, where: 'indoor', focus: 'heat', title: 'Heat-Data Desk Check', desc: 'Tidy and chart the school’s temperature readings for the weekly report, flagging anything that looks unusual.' },
-  { id: 'gate', tier: '2', tierLabel: 'Tier 2: Field Audit', hours: 1, min: 0.5, max: 2, where: 'outdoor', focus: 'air', title: 'No-Idling School-Gate Shift', desc: 'Adult-supervised: politely ask waiting drivers to switch engines off at pick-up and drop-off, and count how many do.' },
-  { id: 'shade', tier: '2', tierLabel: 'Tier 2: Field Audit', hours: 2, min: 1, max: 3, where: 'outdoor', focus: 'heat', title: 'Shade & Tree Survey', desc: 'Adult-supervised: walk a set route and record where shade and trees exist, so planting can go where it is needed most.' },
-  { id: 'water', tier: '2', tierLabel: 'Tier 2: Field Audit', hours: 2, min: 1, max: 3, where: 'outdoor', focus: 'heat', title: 'Water & Cooling Point Mapping', desc: 'Adult-supervised: find and check water coolers and shaded rest spots nearby so people know where to go in a heatwave.' },
-  { id: 'saplings', tier: '2', tierLabel: 'Tier 2: Field Audit', hours: 2.5, min: 1, max: 4, where: 'outdoor', focus: 'air', title: 'Plant 4 Native Dust-Barrier Saplings (Neem & Moringa)', desc: 'Adult-supervised planting of 4 hardy native saplings along the school perimeter wall, with a geotagged soil log.' },
-  { id: 'steward', tier: '3', tierLabel: 'Tier 3: Stewardship', hours: 4, min: 2, max: 8, where: 'outdoor', focus: 'heat', title: '4-Week Adopt-a-Sapling Watering & Growth Log', desc: 'Water an adopted sapling and log its growth once a week for 4 consecutive weeks, noting leaf dust and soil moisture each time.' },
-];
-
-/** Triggers come from the selected neighbourhood's real data (live air, green space, heat risk). */
-export function buildMissions(unit: UnitFeature | null, reading: LiveAirReading | null, heat: { label: string; rank: number; of: number } | null): Mission[] {
-  const p = unit?.properties;
-  const air = reading ? `${airBand(reading.pm25).label} air · PM2.5 ${reading.pm25.toFixed(1)} µg/m³ (live)` : 'Air status unavailable';
-  const green = p?.infra?.greenM2PerPerson != null ? `Low shade cover: ${p.infra.greenM2PerPerson.toFixed(1)} m² of mapped green space per person` : 'Shade and dust buffer needed';
-  const hot = heat ? `Heat risk: ${heat.label} (#${heat.rank} of ${heat.of} units)` : 'Long-term heat resilience';
-  const trig: Record<string, string> = { kits: air, lesson: air, desk: hot, gate: air, shade: hot, water: hot, saplings: green, steward: hot };
-  return MISSION_BASE.map((m) => ({ ...m, trigger: trig[m.id] }));
-}
-
-export interface Filters { where: 'any' | 'indoor' | 'outdoor'; time: 'any' | 'quick' | 'half' | 'long'; focus: 'any' | Focus }
-export const TIME_LABEL: Record<Filters['time'], string> = { any: 'Any amount of time', quick: 'Quick (up to 1 hour)', half: 'Half day (1–3 hours)', long: 'Long (4+ hours)' };
+export interface Filters { where: 'any' | 'indoor' | 'outdoor'; focus: 'any' | Focus }
 export function matchesFilters(m: Mission, f: Filters): boolean {
   if (f.where !== 'any' && m.where !== f.where) return false;
   if (f.focus !== 'any' && m.focus !== f.focus) return false;
-  if (f.time === 'quick') return m.hours <= 1;
-  if (f.time === 'half') return m.hours > 1 && m.hours <= 3;
-  if (f.time === 'long') return m.hours >= 4;
   return true;
 }
 
 export const missionLocked = (m: Mission, gate: Gate) => m.where === 'outdoor' && !gate.outdoorOpen;
-export const hourOptions = (m: Mission) => { const o: number[] = []; for (let h = m.min; h <= m.max + 1e-9; h += 0.5) o.push(Math.round(h * 2) / 2); return o; };
 export const fmtH = (h: number) => (h % 1 === 0 ? String(h) : h.toFixed(1));
 const clean = (s: string) => s.replace(/\s+/g, ' ').trim();
 
@@ -76,7 +49,7 @@ export const acceptTags = (i: AcceptInput) => [PROOF_TAG, `m:${i.mission.id}`, `
 export function acceptNote(i: AcceptInput): string {
   const air = i.gate.simulated ? 'simulated hazardous' : i.gate.band ? `${i.gate.band.label.toLowerCase()}${i.gate.pm25 != null ? ` (PM2.5 ${i.gate.pm25.toFixed(1)})` : ''}` : 'unknown';
   return [
-    `MISSION ACCEPTED — ${i.mission.title} — ${fmtH(i.hours)} h`,
+    `MISSION ACCEPTED, ${i.mission.title}, ${fmtH(i.hours)} h`,
     `Student: ${clean(i.student).slice(0, 60)} · School: ${clean(i.school).slice(0, 80)}`,
     i.mission.where === 'outdoor' ? 'Volunteer confirmed an adult will be present for this outdoor mission.' : 'Indoor mission.',
     `Air when accepted: ${air}`,
@@ -112,14 +85,14 @@ export interface Proof {
 const tagOf = (tags: string[], k: string) => tags.find((t) => t.startsWith(`${k}:`))?.slice(k.length + 1) ?? '';
 
 export function parseProof(l: VolunteerLog): Proof {
-  const head = l.notes.split('\n')[0].replace(/^MISSION ACCEPTED — /, '');
+  const head = l.notes.split('\n')[0].replace(/^MISSION ACCEPTED, /, '');
   const hours = parseFloat(tagOf(l.tags, 'h')) || 0;
   const so = l.status === 'verified' ? parseVerification(l.reviewNote) : null;
   const sp = l.notes.match(/^Student: (.*?) · School: (.*)$/m);
   return {
-    log: l, id: l.id, missionKey: tagOf(l.tags, 'm'), title: head.replace(/ — [\d.]+ h$/, ''), hours, verifiedHours: so?.hours ?? hours,
+    log: l, id: l.id, missionKey: tagOf(l.tags, 'm'), title: head.replace(/, [\d.]+ h$/, ''), hours, verifiedHours: so?.hours ?? hours,
     tier: tagOf(l.tags, 't') || '2', where: tagOf(l.tags, 'w') === 'outdoor' ? 'outdoor' : 'indoor',
-    student: sp?.[1]?.trim() || l.volunteer, school: sp?.[2]?.trim() ?? '', unitId: l.unitId, status: l.status, signer: so,
+    student: sp?.[1]?.trim() || l.volunteer, school: /^not given$/i.test(sp?.[2]?.trim() ?? '') ? '' : sp?.[2]?.trim() ?? '', unitId: l.unitId, status: l.status, signer: so,
     declineNote: l.status === 'flagged' ? l.reviewNote : '',
   };
 }

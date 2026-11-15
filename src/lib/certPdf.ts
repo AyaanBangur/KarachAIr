@@ -21,7 +21,7 @@ export async function buildCertificatePdf(data: CertData): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const name = pdfSafe(data.n);
   pdf.setTitle(`Certificate of Completion - ${name}`);
-  pdf.setAuthor('TerraWatch AI');
+  pdf.setAuthor('KarachAir');
   pdf.setSubject('Verified community service hours');
   const page = pdf.addPage([842, 595]); // A4 landscape
   const reg = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold), mono = await pdf.embedFont(StandardFonts.CourierBold);
@@ -29,7 +29,7 @@ export async function buildCertificatePdf(data: CertData): Promise<Uint8Array> {
 
   page.drawRectangle({ x: 24, y: 24, width: 794, height: 547, borderColor: GREEN, borderWidth: 3 });
   page.drawRectangle({ x: 31, y: 31, width: 780, height: 533, borderColor: LINE, borderWidth: 0.8 });
-  page.drawText('TERRAWATCH AI  -  KARACHI CLIMATE ACTION', { x: X, y: 526, size: 9, font: mono, color: GREEN });
+  page.drawText('KARACHAIR  -  KARACHI CLIMATE ACTION', { x: X, y: 526, size: 9, font: mono, color: GREEN });
   page.drawText('Certificate of Completion', { x: X, y: 486, size: 32, font: bold, color: DARK });
   page.drawRectangle({ x: 640, y: 498, width: 142, height: 26, color: rgb(0.9, 0.972, 0.941), borderColor: rgb(0.608, 0.863, 0.761), borderWidth: 1 });
   page.drawText('VERIFIED HOURS', { x: 656, y: 507, size: 9.5, font: mono, color: GREEN });
@@ -58,7 +58,7 @@ export async function buildCertificatePdf(data: CertData): Promise<Uint8Array> {
   if (data.d) page.drawText(`Issued: ${new Date(data.d + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}`, { x: X, y: sy - 47, size: 10, font: mono, color: GREY });
   page.drawText(`On behalf of ${pdfSafe(data.o || 'the organization')}`, { x: X, y: sy - 63, size: 10, font: mono, color: GREY });
 
-  const fine = wrap(`TerraWatch AI is a technology platform and does not issue volunteer hours itself. Hours are accredited by ${pdfSafe(data.o || 'the organization')} that signed them off.`, reg, 7.5, 700);
+  const fine = wrap(`KarachAir is a technology platform and does not issue volunteer hours itself. Hours are accredited by ${pdfSafe(data.o || 'the organization')} that signed them off.`, reg, 7.5, 700);
   fine.forEach((l, i) => page.drawText(l, { x: X, y: 62 - i * 10, size: 7.5, font: reg, color: GREY }));
 
   return pdf.save();

@@ -1,9 +1,11 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { OrgLogo } from '../components/OrgLogo';
+import { BrandLogo } from '../components/BrandLogo';
 import { rpc } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { SHARED_ENABLED } from '../lib/api';
 import { hrefFor, type Go } from '../lib/hooks';
-import { ArrowRight, Check, Leaf, Logo, Satellite, Sparkle, Users } from '../components/icons';
+import { ArrowRight, Check, Leaf, Satellite, Sparkle, Users } from '../components/icons';
 import { Seg } from '../components/ui';
 
 export function Login({ tab, go }: { tab: string; go: Go }) {
@@ -12,7 +14,7 @@ export function Login({ tab, go }: { tab: string; go: Go }) {
   return (
     <div className="auth">
       <header className="auth-top container-wide">
-        <a className="brand" href={hrefFor({ page: 'login' })}><Logo size={30} /><span className="brand-word">TerraWatch<span className="brand-ai">AI</span></span></a>
+        <a className="brand" href={hrefFor({ page: 'login' })}><BrandLogo height={36} /></a>
         <span className="chip nav-region"><i className="dot" />Karachi heat intelligence</span>
       </header>
       {tab === 'volunteer' ? <VolunteerLogin go={go} onDone={() => enter('volunteer')} />
@@ -26,17 +28,21 @@ export function Login({ tab, go }: { tab: string; go: Go }) {
 function Chooser({ demo }: { demo: (r: 'org' | 'volunteer') => void }) {
   return (
     <div className="auth-main container">
+      <section className="mission" aria-label="Our mission">
+        <span className="eyebrow">Our mission</span>
+        <p>Empowering Karachi&rsquo;s kids, schools, and communities with real-time air tracking to clear the smoke, fight dust, and ensure safe, breathable air for everyone.</p>
+      </section>
       <div className="auth-hero">
         <span className="eyebrow">Welcome</span>
-        <h1>Who&rsquo;s joining <span className="serif heat-text">today?</span></h1>
-        <p>Karachi&rsquo;s heat is measured from space — but only people on the ground can tell us what it feels like. Choose how you&rsquo;re taking part.</p>
+        <h1 className="fancy">Who&rsquo;s joining <span className="serif heat-text">today?</span></h1>
+        <p>Karachi&rsquo;s heat is measured from space, but only people on the ground can tell us what it feels like. Choose how you&rsquo;re taking part.</p>
       </div>
 
       <div className="role-grid">
         <a className="role-card role-volunteer card-glow" href={hrefFor({ page: 'login', tab: 'volunteer' })}>
           <span className="role-badge"><Sparkle />Student volunteers</span>
           <div className="role-icon"><Users /></div>
-          <h2>I&rsquo;m a volunteer</h2>
+          <h2 className="fancy">I&rsquo;m a volunteer</h2>
           <p>Create an account, then choose the organization you volunteer with. Log what you see on the ground, take on field missions, and watch your observations check the satellite data.</p>
           <ul>
             <li><Check />Log temperatures, shade, water points &amp; heat illness</li>
@@ -47,7 +53,7 @@ function Chooser({ demo }: { demo: (r: 'org' | 'volunteer') => void }) {
         </a>
         <a className="role-card role-org" href={hrefFor({ page: 'login', tab: 'organization' })}>
           <div className="role-icon org"><Satellite /></div>
-          <h2>I represent an organization</h2>
+          <h2 className="fancy">I represent an organization</h2>
           <p>For schools, NGOs and city teams. Run a volunteer programme and turn field logs into verified evidence.</p>
           <ul>
             <li><Check />Welcome volunteers and see your roster</li>
@@ -119,7 +125,7 @@ function VolunteerLogin({ go, onDone }: { go: Go; onDone: () => void }) {
         {err && <div className="auth-err" role="alert">{err}</div>}
         <button className="btn btn-primary btn-lg" disabled={busy || !email.trim() || !pass || (mode === 'up' && !name.trim())}>{busy ? <><span className="spinner" />Please wait…</> : mode === 'up' ? <>Create account <ArrowRight /></> : <>Sign in <ArrowRight /></>}</button>
       </form>
-      <p className="auth-alt muted">There is no automatic password reset — keep your password safe. Representing an organization? <a href={hrefFor({ page: 'login', tab: 'organization' })}>Sign in here</a></p>
+      <p className="auth-alt muted">There is no automatic password reset, keep your password safe. Representing an organization? <a href={hrefFor({ page: 'login', tab: 'organization' })}>Sign in here</a></p>
     </Shell>
   );
 }
@@ -136,7 +142,7 @@ export function JoinOrg() {
   return (
     <div className="auth">
       <header className="auth-top container-wide">
-        <span className="brand"><Logo size={30} /><span className="brand-word">TerraWatch<span className="brand-ai">AI</span></span></span>
+        <span className="brand"><BrandLogo height={36} /></span>
         <button className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>
       </header>
       <div className="auth-main container">
@@ -154,7 +160,7 @@ export function JoinOrg() {
               <div className="org-pick" role="radiogroup" aria-label="Organizations">
                 {list.map((o) => (
                   <button type="button" key={o.id} role="radio" aria-checked={orgId === o.id} className={`org-opt ${orgId === o.id ? 'on' : ''}`} onClick={() => setOrgId(o.id)}>
-                    <span className="org-radio" />{o.name}
+                    <span className="org-radio" /><OrgLogo name={o.name} size={34} /><span>{o.name}</span>
                   </button>
                 ))}
                 {list.length === 0 && <p className="muted" style={{ fontSize: 13 }}>No organization matches “{q}”.</p>}
@@ -185,16 +191,17 @@ function OrgLogin({ go, onDone }: { go: Go; onDone: () => void }) {
   };
   return (
     <Shell go={go} title={mode === 'in' ? 'Organization sign-in' : 'Register your organization'} sub={mode === 'in' ? 'Sign in to manage your volunteers, missions and reports.' : 'Create a workspace for your school, NGO or team. Volunteers will then be able to choose it when they sign in.'}
-      aside={<><h3>Organization tools</h3><ul className="aside-list"><li><b>Roster</b> — volunteers pick your organization and appear here with their activity.</li><li><b>Coverage map</b> — see which high-risk neighbourhoods have no field data.</li><li><b>Missions</b> — assign targeted observations to volunteers.</li><li><b>Review queue</b> — verify or flag logs against satellite data.</li><li><b>Reports</b> — build print-ready reports from verified evidence.</li></ul></>}>
+      aside={<><h3>Organization tools</h3><ul className="aside-list"><li><b>Roster</b>, volunteers pick your organization and appear here with their activity.</li><li><b>Coverage map</b>, see which high-risk neighbourhoods have no field data.</li><li><b>Missions</b>, assign targeted observations to volunteers.</li><li><b>Review queue</b>, verify or flag logs against satellite data.</li><li><b>Reports</b>, build print-ready reports from verified evidence.</li></ul></>}>
       <div style={{ margin: '4px 0 14px' }}><Seg<'in' | 'up'> label="Sign in or register" value={mode} onChange={(m) => { setMode(m); setErr(null); }} options={[{ value: 'in', label: 'Sign in' }, { value: 'up', label: 'Register' }]} /></div>
       <form onSubmit={submit} className="auth-form">
         <Field label="Organization name"><input className="field" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Karachi Grammar School" maxLength={80} required autoFocus /></Field>
+        {name.trim().length > 1 && mode === 'up' && <div className="org-logo-preview" style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0 8px' }}><OrgLogo name={name} size={56} /><span className="muted" style={{ fontSize: 12.5 }}>Your organization&rsquo;s logo is created from its name. Volunteers see it when choosing an organization to join.</span></div>}
         <Field label="Passcode" hint={mode === 'up' ? 'At least 8 characters. Don’t reuse a password from elsewhere.' : undefined}><input className="field" type="password" value={pass} onChange={(e) => setPass(e.target.value)} autoComplete={mode === 'in' ? 'current-password' : 'new-password'} required /></Field>
         {mode === 'up' && <Field label="Confirm passcode"><input className="field" type="password" value={pass2} onChange={(e) => setPass2(e.target.value)} autoComplete="new-password" required /></Field>}
         {err && <div className="auth-err" role="alert">{err}</div>}
         <button className="btn btn-primary btn-lg" disabled={busy || !name.trim() || !pass}>{busy ? <><span className="spinner" />Please wait…</> : mode === 'in' ? <>Sign in <ArrowRight /></> : <>Create organization <ArrowRight /></>}</button>
       </form>
-      <p className="auth-alt muted">Forgot your passcode? There is no automatic reset — ask the person who registered the organization. Joining as a student? <a href={hrefFor({ page: 'login', tab: 'volunteer' })}>Volunteer sign-in</a></p>
+      <p className="auth-alt muted">Forgot your passcode? There is no automatic reset, ask the person who registered the organization. Joining as a student? <a href={hrefFor({ page: 'login', tab: 'volunteer' })}>Volunteer sign-in</a></p>
     </Shell>
   );
 }

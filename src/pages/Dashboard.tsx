@@ -10,7 +10,8 @@ import { CompareTab } from '../components/dashboard/CompareTab';
 import { TrendsTab } from '../components/dashboard/TrendsTab';
 import { ScenarioLab } from '../components/dashboard/ScenarioLab';
 import { AirTab } from '../components/air/AirTab';
-import { Compare, Doc, Droplet, MapIcon, Satellite, Sliders, Sparkle, Trend } from '../components/icons';
+import { Compare, Doc, Droplet, MapIcon, Satellite, Sliders, Sparkle, Table, Trend } from '../components/icons';
+import { SourcesPanel } from '../components/SourcesPanel';
 import { useAuth } from '../lib/auth';
 import { OrgConsole } from '../components/org/OrgConsole';
 
@@ -23,6 +24,7 @@ const ALL_TABS = [
   { id: 'scenarios', label: 'Scenario lab', icon: Sliders, roles: ['org'] },
   { id: 'org', label: 'Org portal', icon: Satellite, roles: ['org'] },
   { id: 'report', label: 'Report', icon: Doc, roles: ['org'] },
+  { id: 'sources', label: 'Data & sources', icon: Table, roles: ['org'] },
 ] as const;
 
 export function Dashboard({ route, go }: { route: Route; go: Go }) {
@@ -45,7 +47,7 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { document.title = `${TABS.find((t) => t.id === tab)!.label} · TerraWatch AI`; return () => { document.title = 'TerraWatch AI — Karachi heat intelligence'; }; }, [tab]);
+  useEffect(() => { document.title = `${TABS.find((t) => t.id === tab)!.label} · KarachAir`; return () => { document.title = 'KarachAir, Karachi heat intelligence'; }; }, [tab]);
 
   const select = (id: string | null) => go({ tab: 'explore', unit: id ?? undefined });
   const toggleCompare = (id: string) => setPicks(picks.includes(id) ? picks.filter((x) => x !== id) : picks.length >= 3 ? [...picks.slice(1), id] : [...picks, id]);
@@ -79,10 +81,11 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
       )}
       {tab === 'compare' && <CompareTab picks={picks} setPicks={setPicks} onOpenUnit={select} />}
       {tab === 'trends' && <TrendsTab picks={picks} />}
-      {tab === 'report' && <ReportTab picks={picks} />}
+      {tab === 'report' && <ReportTab picks={picks} air={air.data} weather={live.data} />}
       {tab === 'air' && <AirTab air={air} weather={live.data} />}
       {tab === 'volunteer' && <VolunteerTab air={air} weather={live.data} />}
       {tab === 'org' && <OrgConsole />}
+      {tab === 'sources' && <div className="tab-body container-wide"><SourcesPanel air={air} weather={live} /></div>}
       {tab === 'scenarios' && <div className="tab-body container-wide"><ScenarioLab key={selectedId ?? 'none'} initialUnit={selectedId} /></div>}
     </div>
   );

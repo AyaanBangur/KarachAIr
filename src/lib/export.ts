@@ -24,8 +24,8 @@ export function unitsToCsv(units: UnitFeature[], scores: Map<string, RiskScore>)
 export function unitBrief(u: UnitFeature, s: RiskScore, meta: MetaFile, extras: { medians: { lstDay: number; lstNight: number; ndvi: number }; opportunities: { title: string; why: string }[]; confidence: string }): string {
   const p = u.properties, l = p.lst;
   const L: string[] = [];
-  L.push(`# TerraWatch AI — heat brief: ${p.name}`, '', `_Generated ${fmtDate(new Date().toISOString())} · data build ${fmtDate(meta.generatedAt)}_`, '');
-  L.push(`**Heat Risk Index: ${s.index.toFixed(0)} / 100 (${s.tier.label}), rank ${s.rank} of ${meta.unitCount}** — a *relative* ranking across Karachi's administrative units, not an absolute danger level.`, '');
+  L.push(`# KarachAir, heat brief: ${p.name}`, '', `_Generated ${fmtDate(new Date().toISOString())} · data build ${fmtDate(meta.generatedAt)}_`, '');
+  L.push(`**Heat Risk Index: ${s.index.toFixed(0)} / 100 (${s.tier.label}), rank ${s.rank} of ${meta.unitCount}**, a *relative* ranking across Karachi's administrative units, not an absolute danger level.`, '');
   L.push('## Measured indicators', '', '| Indicator | Value | Source |', '|---|---|---|');
   if (l) {
     L.push(`| Afternoon land-surface temperature (hot season mean) | ${l.day.toFixed(1)} °C (city median ${extras.medians.lstDay.toFixed(1)}) | NASA MODIS/Aqua MYD11A2 |`);
@@ -36,9 +36,9 @@ export function unitBrief(u: UnitFeature, s: RiskScore, meta: MetaFile, extras: 
   L.push(`| Population (2020 model) | ${fmtInt(p.population)} (${fmtInt(p.popDensity)} per km²) | WorldPop |`);
   if (p.infra) L.push(`| Mapped hospitals + clinics | ${p.infra.healthFacilities} (${p.infra.healthPer100k?.toFixed(1)} per 100k) | OpenStreetMap |`);
   if (p.air) L.push(`| Hot-season mean max air temperature | ${p.air.hotSeasonTmax.toFixed(1)} °C (~9 km grid) | ERA5-Land via Open-Meteo |`);
-  L.push('', '## Risk components (0–100, relative)', '', `- Hazard: ${s.hazard.toFixed(0)}`, `- Exposure: ${s.exposure.toFixed(0)}`, `- Vulnerability: ${s.vulnerability.toFixed(0)}`, '');
-  L.push('## Intervention opportunities (rule-based, tied to the gaps above)', '', ...extras.opportunities.map((o) => `- **${o.title}** — ${o.why}`), '');
+  L.push('', '## Risk components (0 to 100, relative)', '', `- Hazard: ${s.hazard.toFixed(0)}`, `- Exposure: ${s.exposure.toFixed(0)}`, `- Vulnerability: ${s.vulnerability.toFixed(0)}`, '');
+  L.push('## Intervention opportunities (rule-based, tied to the gaps above)', '', ...extras.opportunities.map((o) => `- **${o.title}**, ${o.why}`), '');
   L.push('## Confidence & limits', '', `- Data confidence: ${extras.confidence}`, '- Satellite values are *surface* temperatures at ~1 km, not air temperature, and exclude cloudy observations.', '- Population is a modelled 2020 estimate. Health facilities are volunteer-mapped and under-count informal care.', '- Income, age, housing quality and indoor-cooling access are **not** included (no open data at this level).', '');
-  L.push('## Sources', '', ...meta.sources.map((x) => `- ${x.name} — ${x.provider} (${x.license}) ${x.url}`));
+  L.push('## Sources', '', ...meta.sources.map((x) => `- ${x.name}, ${x.provider} (${x.license}) ${x.url}`));
   return L.join('\n');
 }

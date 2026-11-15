@@ -1,4 +1,4 @@
-// Shared helpers for the TerraWatch AI data pipeline.
+// Shared helpers for the KarachAir data pipeline.
 // Everything here is dependency-free (Node 20+ built-ins only).
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -7,7 +7,7 @@ import path from 'node:path';
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const CACHE = path.join(ROOT, 'data-cache');
 export const OUT = path.join(ROOT, 'public', 'data');
-export const UA = 'TerraWatchAI-hackathon/0.1 (open-data climate research)';
+export const UA = 'KarachAir-hackathon/0.1 (open-data climate research)';
 
 export const log = (stage, ...a) => console.log(`[${new Date().toISOString().slice(11, 19)}] [${stage}]`, ...a);
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

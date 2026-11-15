@@ -1,4 +1,4 @@
-// Air-quality logic for TerraWatch: status bands, pollution-source guess, alert drafting + number audit, volunteer missions.
+// Air-quality logic for KarachAir: status bands, pollution-source guess, alert drafting + number audit, volunteer missions.
 // Everything here is pure and deterministic so it can be unit-checked and explained on screen.
 
 // ------------------------------------------------------------------ 1. traffic-light status
@@ -48,7 +48,7 @@ export function classifyCause(i: CauseInput): Cause {
     return {
       id: 'traffic', label: 'School-gate traffic',
       sentence: `Likely school-gate traffic exhaust: rush hour with NO₂ at ${one(no2)} µg/m³.`,
-      evidence: [`${String(hour).padStart(2, '0')}:00 falls in a school rush window (07–09 or 13–15)`, `NO₂ ${one(no2)} µg/m³ is above 40`],
+      evidence: [`${String(hour).padStart(2, '0')}:00 falls in a school rush window (07 to 09 or 13 to 15)`, `NO₂ ${one(no2)} µg/m³ is above 40`],
     };
   }
   if (windKmh != null && windKmh > 18 && ratio != null && ratio < 0.35) {
@@ -62,7 +62,7 @@ export function classifyCause(i: CauseInput): Cause {
     return {
       id: 'burning', label: 'Trash burning',
       sentence: 'Likely trash-burning smoke: evening hours and mostly fine, smoke-sized particles.',
-      evidence: [`${String(hour).padStart(2, '0')}:00 is in the evening burn window (18–23)`, `PM2.5/PM10 = ${ratioTxt}, above 0.65 (fine particles dominate)`],
+      evidence: [`${String(hour).padStart(2, '0')}:00 is in the evening burn window (18 to 23)`, `PM2.5/PM10 = ${ratioTxt}, above 0.65 (fine particles dominate)`],
     };
   }
   return {
@@ -95,7 +95,7 @@ const URDU_CAUSE: Record<CauseId, (f: AlertFacts) => string> = {
 /** Template-based (no live LLM): fast, offline and fully reproducible. Numbers come only from the facts passed in. */
 export function draftAlert(f: AlertFacts): { en: string; ur: string } {
   const en = `Air alert for ${f.place}: PM2.5 is ${one(f.pm25)} µg/m³ (${f.band.label}). ${f.cause.sentence} ${f.band.advice}`;
-  const ur = `فضائی آلودگی کا الرٹ — ${iso(f.place)}۔ ${iso('PM2.5')} کی سطح ${iso(`${one(f.pm25)} µg/m³`)} ہے (${URDU_LEVEL[f.band.level]})۔ ${URDU_CAUSE[f.cause.id](f)} ${URDU_ADVICE[f.band.level]}`;
+  const ur = `فضائی آلودگی کا الرٹ, ${iso(f.place)}۔ ${iso('PM2.5')} کی سطح ${iso(`${one(f.pm25)} µg/m³`)} ہے (${URDU_LEVEL[f.band.level]})۔ ${URDU_CAUSE[f.cause.id](f)} ${URDU_ADVICE[f.band.level]}`;
   return { en, ur };
 }
 
@@ -116,23 +116,7 @@ export function auditNumbers(text: string, facts: { name: string; value: number 
   return { rows, ok: rows.every((r) => r.matches) && mentionsPm25, mentionsPm25 };
 }
 
-// ------------------------------------------------------------------ 4. volunteer missions
-export interface AirMission { id: string; title: string; detail: string; hours: number; where: 'indoor' | 'outdoor' }
-
-export const AIR_MISSIONS: readonly AirMission[] = [
-  { id: 'cards', title: 'Hand out clean-air health cards', detail: 'Share the colour-coded air guide with classmates and neighbours.', hours: 0.5, where: 'indoor' },
-  { id: 'class', title: 'Teach a 10-minute PM2.5 lesson', detail: 'Explain the traffic-light status to a younger class.', hours: 1, where: 'indoor' },
-  { id: 'idling', title: 'No-idling shift at the school gate', detail: 'Politely ask drivers to switch engines off while they wait.', hours: 1, where: 'outdoor' },
-  { id: 'trees', title: 'Plant dust-barrier saplings', detail: 'Help plant a hedge row along a dusty road or boundary wall.', hours: 2, where: 'outdoor' },
-];
-
 export interface HourEntry { id: string; missionId: string; title: string; hours: number; at: string; place: string; level: AirLevel }
-
-export function missionLocked(m: AirMission, band: AirBand | null): { locked: boolean; reason: string | null } {
-  if (m.where === 'indoor') return { locked: false, reason: null };
-  if (!band) return { locked: true, reason: 'Locked: live air status unavailable' };
-  return band.outdoorsOk ? { locked: false, reason: null } : { locked: true, reason: `Locked: air is ${band.label.toLowerCase()} today` };
-}
 
 // ------------------------------------------------------------------ 5. honest limits
 export const AIR_LIMITS = [

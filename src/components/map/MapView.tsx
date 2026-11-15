@@ -57,7 +57,7 @@ export default function MapView({ layer, selectedId, onSelect, showFacilities, s
     m.createPane('labels').style.zIndex = '450'; m.getPane('labels')!.style.pointerEvents = 'none';
     m.createPane('facilities').style.zIndex = '460';
     // Esri Dark Gray Canvas — keyless, built for data overlays. (CARTO's basemaps now require an API key.)
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors', maxZoom: 14 }).addTo(m);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri, Esri, HERE, Garmin, © OpenStreetMap contributors', maxZoom: 14 }).addTo(m);
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { pane: 'labels', maxZoom: 14, opacity: 0.8 }).addTo(m);
 
     const gj = L.geoJSON(data.collection, {

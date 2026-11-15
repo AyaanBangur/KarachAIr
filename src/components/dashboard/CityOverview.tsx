@@ -19,26 +19,26 @@ export function CityOverview({ onOpenUnit, weather }: { onOpenUnit: (id: string)
   return (
     <div className="city-overview">
       <div className="co-head">
-        <div><h2>Karachi at a glance</h2><p className="muted">Select a unit on the map for its full profile — or start with the findings below.</p></div>
+        <div><h2>Karachi at a glance</h2><p className="muted">Select a unit on the map for its full profile, or start with the findings below.</p></div>
       </div>
       <div className="up-grid">
         <StatTile icon={<Users />} tone="var(--c-pop)" label="Residents modelled" value={fmtCompact(data.meta.totalPopulation)} sub={`${data.units.length} administrative units`} />
         <StatTile icon={<Thermometer />} tone="var(--c-heat)" label="Hottest afternoon" value={fmtTemp(hottest?.properties.lst?.day)} sub={hottest?.properties.short} />
         <StatTile icon={<Flame />} tone="var(--c-alert)" label="Highest risk index" value={top.index.toFixed(0)} sub={topUnit.properties.short} />
-        <StatTile icon={<Thermometer />} tone="var(--c-warn)" label="Warming / decade" value={data.meta.climateCity ? `+${data.meta.climateCity.trend.annualMeanTmaxPerDecade.toFixed(2)}°C` : '—'} sub="Daily max temp, ERA5-Land" />
+        <StatTile icon={<Thermometer />} tone="var(--c-warn)" label="Warming / decade" value={data.meta.climateCity ? `+${data.meta.climateCity.trend.annualMeanTmaxPerDecade.toFixed(2)}°C` : 'n/a'} sub="Daily max temp, ERA5-Land" />
       </div>
 
       <LiveStrip weather={weather} label="Karachi average" />
 
       <section>
         <h3 className="up-h">Key findings <span className="chip" style={{ marginLeft: 8 }}>computed from data</span></h3>
-        <p className="muted" style={{ fontSize: 12.5, margin: '-4px 0 10px' }}>Open a card for the evidence, confidence and exact method. Nothing here is free-written — every statement is generated from the measured values.</p>
+        <p className="muted" style={{ fontSize: 12.5, margin: '-4px 0 10px' }}>Open a card for the evidence, confidence and exact method. Nothing here is free-written, every statement is generated from the measured values.</p>
         <div className="insight-list">
           {insights.map((i, k) => <InsightCard key={i.id} insight={i} onOpenUnit={onOpenUnit} defaultOpen={k === 0} />)}
         </div>
       </section>
 
-      <button className="btn" onClick={() => downloadText('terrawatch-karachi-units.csv', unitsToCsv(data.units, scores), 'text/csv')}><Download />Download all units (CSV)</button>
+      <button className="btn" onClick={() => downloadText('karachair-karachi-units.csv', unitsToCsv(data.units, scores), 'text/csv')}><Download />Download all units (CSV)</button>
     </div>
   );
 }

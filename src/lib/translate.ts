@@ -4,12 +4,7 @@
 
 export interface Lang { code: string; name: string; mic: string; rtl?: boolean }
 export const LANGS: Lang[] = [
-  { code: 'en', name: 'English', mic: 'en-US' }, { code: 'ur', name: 'Urdu', mic: 'ur-PK', rtl: true }, { code: 'hi', name: 'Hindi', mic: 'hi-IN' },
-  { code: 'ar', name: 'Arabic', mic: 'ar-SA', rtl: true }, { code: 'bn', name: 'Bengali', mic: 'bn-BD' }, { code: 'pa', name: 'Punjabi', mic: 'pa-Guru-IN' },
-  { code: 'gu', name: 'Gujarati', mic: 'gu-IN' }, { code: 'sd', name: 'Sindhi', mic: 'sd-PK', rtl: true }, { code: 'es', name: 'Spanish', mic: 'es-ES' },
-  { code: 'fr', name: 'French', mic: 'fr-FR' }, { code: 'de', name: 'German', mic: 'de-DE' }, { code: 'pt', name: 'Portuguese', mic: 'pt-PT' },
-  { code: 'tr', name: 'Turkish', mic: 'tr-TR' }, { code: 'ru', name: 'Russian', mic: 'ru-RU' }, { code: 'id', name: 'Indonesian', mic: 'id-ID' },
-  { code: 'zh', name: 'Chinese', mic: 'zh-CN' }, { code: 'ja', name: 'Japanese', mic: 'ja-JP' }, { code: 'ko', name: 'Korean', mic: 'ko-KR' },
+  { code: 'en', name: 'English', mic: 'en-US' }, { code: 'hi', name: 'Hindi (हिन्दी)', mic: 'hi-IN' },
 ];
 export const langOf = (code: string) => LANGS.find((l) => l.code === code) ?? LANGS[0];
 

@@ -9,17 +9,17 @@ function CertSheet({ data }: { data: CertData }) {
   return (
     <article className="cert" id="cert-print">
       <header>
-        <div><span className="cert-eyebrow">TerraWatch AI · Karachi climate action</span><h2>Certificate of Completion</h2></div>
+        <div><span className="cert-eyebrow">KarachAir · Karachi climate action</span><h2>Certificate of Completion</h2></div>
         <span className="cert-badge">Verified hours</span>
       </header>
       <p className="cert-label">This certifies that</p>
-      <h3 className="cert-name">{data.n}{data.s ? ` — ${data.s}` : ''}</h3>
+      <h3 className="cert-name">{data.n}{data.s ? `, ${data.s}` : ''}</h3>
       <p className="cert-text">has successfully completed <b>{fmtH(data.h)} verified volunteer hour{data.h === 1 ? '' : 's'}</b> in <b>{data.u || 'Karachi'}</b> for the climate mission:</p>
       <div className="cert-mission"><b>{data.t}</b></div>
       <footer>
-        <div><span className="cert-label">Authorized sign-off</span><b>{data.g ? data.g : '—'}</b>{data.r && <span className="cert-issued">{data.r}</span>}<span className="cert-issued">Issued: {issued}</span><span className="cert-org">On behalf of {data.o || 'the organization'}</span></div>
+        <div><span className="cert-label">Authorized sign-off</span><b>{data.g ? data.g : 'n/a'}</b>{data.r && <span className="cert-issued">{data.r}</span>}<span className="cert-issued">Issued: {issued}</span><span className="cert-org">On behalf of {data.o || 'the organization'}</span></div>
       </footer>
-      <p className="cert-fine">TerraWatch AI is a technology platform and does not issue volunteer hours itself. Hours are accredited by {data.o || 'the organization'} that signed them off.</p>
+      <p className="cert-fine">KarachAir is a technology platform and does not issue volunteer hours itself. Hours are accredited by {data.o || 'the organization'} that signed them off.</p>
     </article>
   );
 }

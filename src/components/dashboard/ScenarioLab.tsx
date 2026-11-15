@@ -71,11 +71,11 @@ export function ScenarioLab({ initialUnit }: { initialUnit: string | null }) {
 
         <div className="lab-sliders">
           <Slider label="Background warming (what-if, not a forecast)" value={s.warming} min={0} max={4} step={0.5} onChange={(v) => set({ warming: v })} format={(v) => `+${v.toFixed(1)}°C`} fill="var(--c-alert)" />
-          <Slider label="Greening — added vegetation (NDVI)" value={s.dNdvi} min={0} max={0.25} step={0.01} onChange={(v) => set({ dNdvi: v })} format={(v) => `+${v.toFixed(2)}`} fill="var(--c-veg)" />
-          <Slider label="Cool roofs / reflective pavement — surface treated" value={s.coolShare} min={0} max={1} step={0.05} onChange={(v) => set({ coolShare: v })} format={(v) => `${Math.round(v * 100)}%`} fill="var(--c-cool)" />
+          <Slider label="Greening, added vegetation (NDVI)" value={s.dNdvi} min={0} max={0.25} step={0.01} onChange={(v) => set({ dNdvi: v })} format={(v) => `+${v.toFixed(2)}`} fill="var(--c-veg)" />
+          <Slider label="Cool roofs / reflective pavement, surface treated" value={s.coolShare} min={0} max={1} step={0.05} onChange={(v) => set({ coolShare: v })} format={(v) => `${Math.round(v * 100)}%`} fill="var(--c-cool)" />
           <div>
             <Slider label="…assumed cooling of treated surface" value={s.coolEffect} min={0} max={6} step={0.5} onChange={(v) => set({ coolEffect: v })} format={(v) => `${v.toFixed(1)}°C`} fill="var(--c-warn)" />
-            <div style={{ marginTop: 6 }}><KindTag kind="assumption" /> <span className="muted" style={{ fontSize: 12 }}>Not measured in Karachi — replace with a local pilot result.</span></div>
+            <div style={{ marginTop: 6 }}><KindTag kind="assumption" /> <span className="muted" style={{ fontSize: 12 }}>Not measured in Karachi, replace with a local pilot result.</span></div>
           </div>
         </div>
       </div>
@@ -132,7 +132,7 @@ export function ScenarioLab({ initialUnit }: { initialUnit: string | null }) {
 
         <div className="callout">
           <Sliders />
-          <span><b>How to read this.</b> ΔLST = warming + β·ΔNDVI − treated share × assumed cooling. {reg ? <>β = {reg.slopePerNdvi.toFixed(1)}°C per 1.0 NDVI (±{(reg.ci95Per0p1 * 10).toFixed(1)} at 95%), measured across {reg.n.toLocaleString()} inhabited Karachi pixels (R² {reg.r2.toFixed(2)}) — an <i>association</i>, so real-world greening may cool more or less. </> : null}Night-time temperature responds only to background warming (we do not assume interventions help at night). The risk index is re-scored on today's scale, so numbers above 100 mean "hotter than anywhere in Karachi today".</span>
+          <span><b>How to read this.</b> ΔLST = warming + β·ΔNDVI − treated share × assumed cooling. {reg ? <>β = {reg.slopePerNdvi.toFixed(1)}°C per 1.0 NDVI (±{(reg.ci95Per0p1 * 10).toFixed(1)} at 95%), measured across {reg.n.toLocaleString()} inhabited Karachi pixels (R² {reg.r2.toFixed(2)}), an <i>association</i>, so real-world greening may cool more or less. </> : null}Night-time temperature responds only to background warming (we do not assume interventions help at night). The risk index is re-scored on today's scale, so numbers above 100 mean "hotter than anywhere in Karachi today".</span>
         </div>
       </div>
     </div>

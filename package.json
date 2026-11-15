@@ -1,8 +1,8 @@
 {
-  "name": "terrawatch-ai",
+  "name": "karachair",
   "private": true,
   "version": "0.1.0",
-  "description": "TerraWatch AI — extreme-heat intelligence for Karachi, built on open satellite, population and climate data.",
+  "description": "KarachAir — extreme-heat intelligence for Karachi, built on open satellite, population and climate data.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,8 +13,10 @@
     "data:static": "node scripts/pipeline/run.mjs --skip-modis"
   },
   "dependencies": {
+    "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/geist": "^5.2.0",
     "@fontsource-variable/geist-mono": "^5.2.0",
+    "@fontsource-variable/outfit": "^5.3.0",
     "@fontsource/instrument-serif": "^5.2.0",
     "leaflet": "^1.9.4",
     "pdf-lib": "^1.17.1",

@@ -10,11 +10,13 @@ import { ArrowRight, Check, Doc, Download, Reset, Table } from '../icons';
 import { hrefFor } from '../../lib/hooks';
 import { useAuth } from '../../lib/auth';
 import { useScenario } from '../../lib/scenarioState';
+import type { LiveAir, LiveWeather } from '../../lib/hooks';
 
 type SectionKey = keyof ReportOptions['sections'];
 const SECTIONS: { key: SectionKey; label: string; hint: string }[] = [
   { key: 'summary', label: 'Executive summary', hint: 'Headline numbers and a plain-language overview' },
   { key: 'findings', label: 'Key findings', hint: 'Evidence-backed insights with confidence levels' },
+  { key: 'live', label: 'Live conditions & trends', hint: 'Line graphs and volunteer priorities that update with live data' },
   { key: 'ranking', label: 'Risk ranking', hint: 'Chart and table of the Heat Risk Index' },
   { key: 'profiles', label: 'Neighbourhood profiles', hint: 'Per-unit indicators and opportunities' },
   { key: 'scenario', label: 'Scenario analysis', hint: 'Follows whatever you set in the Scenario lab' },
@@ -22,7 +24,7 @@ const SECTIONS: { key: SectionKey; label: string; hint: string }[] = [
   { key: 'method', label: 'Data, method & limits', hint: 'Sources, formula and honest caveats' },
 ];
 
-export function ReportTab({ picks }: { picks: string[] }) {
+export function ReportTab({ picks, air, weather }: { picks: string[]; air: LiveAir | null; weather: LiveWeather | null }) {
   const { data, scores, weights, setWeights, medians, baseline } = useTerra();
   const { logs } = useLogs();
   const { session } = useAuth();
@@ -30,7 +32,7 @@ export function ReportTab({ picks }: { picks: string[] }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [opts, setOpts] = useState<ReportOptions>({
     title: 'Extreme heat in Karachi: where risk is highest', author: '', organisation: session?.org?.name ?? '', scope: 'all', picks, verifiedOnly: false,
-    sections: { summary: true, findings: true, ranking: true, profiles: true, scenario: true, volunteer: true, method: true },
+    sections: { summary: true, findings: true, live: true, ranking: true, profiles: true, scenario: true, volunteer: true, method: true },
   });
   const [saved, setSaved] = useState(false);
   const [showWeights, setShowWeights] = useState(false);
@@ -38,10 +40,10 @@ export function ReportTab({ picks }: { picks: string[] }) {
   const effective: ReportOptions = { ...opts, picks: opts.scope === 'picks' ? picks : opts.picks };
 
   const insights = useMemo(() => buildCityInsights(data.units, scores, weights, data.meta), [data, scores, weights]);
-  const html = useMemo(() => buildReportHtml(effective, { units: data.units, scores, weights, meta: data.meta, insights, logs, medians, baseline, scenario: { s: sc.s, target: sc.target, unitId: sc.unitId } }), // eslint-disable-line react-hooks/exhaustive-deps
-    [opts, picks, data, scores, weights, insights, logs, medians, baseline, sc.s, sc.target, sc.unitId]);
+  const html = useMemo(() => buildReportHtml(effective, { units: data.units, scores, weights, meta: data.meta, insights, logs, medians, baseline, scenario: { s: sc.s, target: sc.target, unitId: sc.unitId }, climate: data.climate, live: { air, weather } }), // eslint-disable-line react-hooks/exhaustive-deps
+    [opts, picks, data, scores, weights, insights, logs, medians, baseline, sc.s, sc.target, sc.unitId, air, weather]);
   const nScoped = scopeUnits(effective, { units: data.units, scores }).length;
-  const fname = (opts.title || 'terrawatch-report').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'terrawatch-report';
+  const fname = (opts.title || 'karachair-report').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'karachair-report';
 
   const download = () => { downloadText(`${fname}.html`, html, 'text/html'); setSaved(true); setTimeout(() => setSaved(false), 2200); };
   const print = () => { frame.current?.contentWindow?.focus(); frame.current?.contentWindow?.print(); };
@@ -64,7 +66,7 @@ export function ReportTab({ picks }: { picks: string[] }) {
           <div className="lab-block">
             <div className="layer-label">Scope</div>
             <Seg<Scope> label="Report scope" value={opts.scope} onChange={(v) => set({ scope: v })} options={[{ value: 'all', label: 'All units' }, { value: 'top10', label: 'Top 10 risk' }, { value: 'picks', label: `My comparison (${picks.length})` }]} />
-            <span className="muted" style={{ fontSize: 12 }}>{nScoped} unit{nScoped === 1 ? '' : 's'} in tables and profiles{opts.scope === 'picks' && !picks.length ? ' — pick units in “Compare & rank” first' : ''}.</span>
+            <span className="muted" style={{ fontSize: 12 }}>{nScoped} unit{nScoped === 1 ? '' : 's'} in tables and profiles{opts.scope === 'picks' && !picks.length ? ', pick units in “Compare & rank” first' : ''}.</span>
           </div>
 
           <div className="lab-block">
@@ -98,11 +100,11 @@ export function ReportTab({ picks }: { picks: string[] }) {
           <div className="report-actions">
             <button className={`btn btn-primary ${saved ? 'is-success' : ''}`} onClick={download}>{saved ? <><Check />Saved</> : <><Download />Download report (HTML)</>}</button>
             <button className="btn" onClick={print}><Doc />Print / Save as PDF</button>
-            <button className="btn btn-ghost" onClick={() => downloadText('terrawatch-karachi-units.csv', unitsToCsv(data.units, scores), 'text/csv')}><Table />Data (CSV)</button>
+            <button className="btn btn-ghost" onClick={() => downloadText('karachair-karachi-units.csv', unitsToCsv(data.units, scores), 'text/csv')}><Table />Data (CSV)</button>
           </div>
 
           <a className="next-step card-glow" href={hrefFor({ tab: 'org' })}>
-            <span><b>Next: review volunteer logs</b><small>Verify field observations in the Org console — verified logs strengthen this report.</small></span><ArrowRight />
+            <span><b>Next: review volunteer logs</b><small>Verify field observations in the Org console, verified logs strengthen this report.</small></span><ArrowRight />
           </a>
         </div>
 

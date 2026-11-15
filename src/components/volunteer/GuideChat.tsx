@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { cleanTranscript } from '../../lib/whisperFlow';
 import { BOT_NAME, areaOf, onDecision, respond, startChat, typeOf, type AirInfo, type BotMsg, type GCtx, type GState, type Task, type TaskView } from '../../lib/guide';
 import { LANGS, langOf, translate } from '../../lib/translate';
 import { airBand, classifyCause } from '../../lib/air';
@@ -14,6 +15,8 @@ type RecCtor = new () => Recognizer;
 const recCtor = (): RecCtor | null => { const w = window as unknown as { SpeechRecognition?: RecCtor; webkitSpeechRecognition?: RecCtor }; return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null; };
 const hasTTS = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
 const PREFERRED = ['sonia', 'jenny', 'aria', 'neerja', 'ryan', 'guy'];
+/** Hindi voices that are male (Microsoft Hemant / Madhur, etc.). "female" is excluded explicitly. */
+const MALE_HI = /(hemant|madhur|prabhat|rishi|ravi)|(?<!fe)male/i;
 
 const spoken = (t: string) => t.replace(/µg\/m³/g, ' micrograms per cubic metre').replace(/PM2\.5/g, 'P M 2.5').replace(/[\u{1F300}-\u{1FAFF}☀-➿️]/gu, '').replace(/["“”]/g, '').trim();
 /** Speak sentence by sentence with a little natural variation; always resolves (safety timeout). */
@@ -29,8 +32,10 @@ function speak(text: string, voice: SpeechSynthesisVoice | null, rate: number, l
     parts.forEach((p, i) => {
       const u = new SpeechSynthesisUtterance(p.trim());
       if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = lang;
-      u.rate = rate * (0.97 + Math.random() * 0.06);
-      u.pitch = 1 + (Math.random() * 0.06 - 0.02);
+      if (lang.startsWith('hi')) {
+        // Hindi: slower, steady and a little lower, with no random variation, so every word is easy to follow
+        u.rate = rate * 0.85; u.pitch = voice && MALE_HI.test(voice.name) ? 0.95 : 0.8; u.volume = 1;
+      } else { u.rate = rate * (0.97 + Math.random() * 0.06); u.pitch = 1 + (Math.random() * 0.06 - 0.02); }
       if (i === parts.length - 1) u.onend = fin;
       u.onerror = fin;
       window.speechSynthesis.speak(u);
@@ -42,7 +47,7 @@ type Item = { id: number; role: 'bot' | 'me'; text: string; chips?: { label: str
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
 /** The volunteer guide chat: rule-based, scripted, optional voice, microphone and translation. */
-export function GuideChat({ air, weather, onAccept }: { air: AirState; weather: LiveWeather | null; onAccept: (task: Task, nick: string) => void }) {
+export function GuideChat({ air, weather, name, tasks, onAccept }: { air: AirState; weather: LiveWeather | null; /** first name of the account holder */ name: string; /** tasks generated from live data and the report */ tasks: Task[]; onAccept: (task: Task, nick: string) => void }) {
   const [items, setItems] = useState<Item[]>([]);
   const [typing, setTyping] = useState(false);
   const [view, setView] = useState<GState | null>(null);
@@ -68,6 +73,7 @@ export function GuideChat({ air, weather, onAccept }: { air: AirState; weather: 
   // ---- live air context for the guide (uses the app's own air bands and source rules)
   const readings = air.data?.byUnit;
   const ctx = useMemo<GCtx>(() => ({
+    name, tasks,
     today: new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }),
     airFor: (area): AirInfo => {
       const unitId = areaOf(area)?.unitId;
@@ -81,7 +87,7 @@ export function GuideChat({ air, weather, onAccept }: { air: AirState; weather: 
       if (band.level !== 'good') trig.add(4);
       return { pm25: r.pm25, label: band.label, outdoorOk: band.outdoorsOk, triggered: [...trig] };
     },
-  }), [readings, weather]);
+  }), [readings, weather, name, tasks]);
   const ctxRef = useRef(ctx); ctxRef.current = ctx;
 
   // ---- voices
@@ -92,7 +98,7 @@ export function GuideChat({ air, weather, onAccept }: { air: AirState; weather: 
     return () => { window.speechSynthesis.onvoiceschanged = null; };
   }, []);
   const langVoices = useMemo(() => voices.filter((v) => v.lang.toLowerCase().startsWith(lang.code)).sort((a, b) => {
-    const s = (v: SpeechSynthesisVoice) => (/natural|online/i.test(v.name) ? 0 : 2) + (PREFERRED.some((p) => v.name.toLowerCase().includes(p)) ? 0 : 1);
+    const s = (v: SpeechSynthesisVoice) => lang.code === 'hi' ? (MALE_HI.test(v.name) ? 0 : 4) + (/natural|online/i.test(v.name) ? 0 : 2) : (/natural|online/i.test(v.name) ? 0 : 2) + (PREFERRED.some((p) => v.name.toLowerCase().includes(p)) ? 0 : 1);
     return s(a) - s(b) || a.name.localeCompare(b.name);
   }), [voices, lang.code]);
   const voice = langVoices.find((v) => v.name === voiceName) ?? langVoices[0] ?? null;
@@ -117,7 +123,7 @@ export function GuideChat({ air, weather, onAccept }: { air: AirState; weather: 
     const r = new C();
     r.lang = langRef.current.mic; r.continuous = false; r.interimResults = false; r.maxAlternatives = 1;
     let got = false;
-    r.onresult = (e) => { got = true; silent.current = 0; const t = e.results[0]?.[0]?.transcript ?? ''; if (t.trim()) sendRef.current(t); };
+    r.onresult = (e) => { got = true; silent.current = 0; const t = e.results[0]?.[0]?.transcript ?? ''; if (t.trim()) void cleanTranscript(t).then((c) => sendRef.current(c)); };
     r.onerror = (e) => {
       if (e.error === 'no-speech' || e.error === 'aborted') return;
       setHandsFree(false); setListening(false);
@@ -199,7 +205,7 @@ export function GuideChat({ air, weather, onAccept }: { air: AirState; weather: 
 
   const p = view?.profile;
   const accepted = view ? Object.values(view.decisions).filter((d) => d === 'accept').length : 0;
-  const typesLabel = p?.types.length ? (p.types.length === 5 ? 'Everything' : p.types.map((id) => typeOf(id).name).join(', ')) : '—';
+  const typesLabel = p?.types.length ? (p.types.length === 5 ? 'Everything' : p.types.map((id) => typeOf(id).name).join(', ')) : 'n/a';
   const row = (k: string, v: string) => <tr key={k}><th scope="row">{k}</th><td>{v}</td></tr>;
 
   return (
@@ -243,17 +249,17 @@ export function GuideChat({ air, weather, onAccept }: { air: AirState; weather: 
         <section className="card card-pad">
           <div className="card-title"><div><h3>What I know about you</h3></div></div>
           <table className="g-table"><tbody>
-            {row('Nickname', p?.nick ?? '—')}{row('Area', p?.area ?? '—')}{row('Interests', typesLabel)}{row('Setting', p?.setting ?? '—')}
-            {row('Time per task', p?.hours == null ? '—' : p.hours === 99 ? 'Flexible' : `${p.hours} h`)}{row('Distance', p ? `${p.radius} km` : '—')}{row('Tasks accepted', String(accepted))}
+            {row('Name', p?.nick ?? 'n/a')}{row('Area', p?.area ?? 'n/a')}{row('Interests', typesLabel)}{row('Setting', p?.setting ?? 'n/a')}
+            {row('Time per task', p?.hours == null ? 'n/a' : p.hours === 99 ? 'Flexible' : `${p.hours} h`)}{row('Distance', p ? `${p.radius} km` : 'n/a')}{row('Tasks accepted', String(accepted))}
           </tbody></table>
         </section>
 
         <section className="card card-pad">
           <div className="card-title"><div><h3>Language</h3></div></div>
-          <select className="select" value={langCode} onChange={(e) => { setLangCode(e.target.value); langRef.current = langOf(e.target.value); stopSpeech(); setVoiceName(''); }} aria-label="Language">
+          <select className="select" value={lang.code} onChange={(e) => { setLangCode(e.target.value); langRef.current = langOf(e.target.value); stopSpeech(); setVoiceName(''); }} aria-label="Language">
             {LANGS.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
           </select>
-          <div className="callout" style={{ marginTop: 10 }}><Alert /><span>Other languages use a free translation service: your messages are sent to it. Don’t type personal details. Translation may be wrong, and Roman Urdu is not supported.</span></div>
+          <div className="callout" style={{ marginTop: 10 }}><Alert /><span>Hindi uses a free translation service: your messages are sent to it. Don’t type personal details. Translation may be imperfect, and Hindi should be typed in Devanagari (हिन्दी), not Roman letters.</span></div>
           {noVoice && <p className="muted tiny" style={{ marginTop: 8 }}>No {lang.name} voice is installed in this browser, so replies are text only.</p>}
         </section>
 
@@ -282,7 +288,8 @@ function TaskCard({ v, decision, onDecide }: { v: TaskView; decision?: 'accept' 
   return (
     <article className={`g-card ${decision ?? ''}`}>
       <div className="g-card-top"><span aria-hidden>{ty.emoji}</span><b>{t.title}</b></div>
-      <div className="chip-row wrap"><span className="chip">{t.area}</span><span className="chip">{v.distKm.toFixed(1)} km</span><span className="chip">{t.hours} h</span><span className="chip">{t.indoor ? 'Indoor' : 'Outdoor'}</span><span className={`chip ${v.needed ? 'needed' : ''}`}>{v.needed ? 'Needed today' : 'Standing task'}</span></div>
+      <div className="chip-row wrap"><span className="chip">{t.area}</span><span className="chip">{v.distKm.toFixed(1)} km</span><span className="chip">{t.hours} h</span><span className="chip">{t.indoor ? 'Indoor' : 'Outdoor'}</span><span className={`chip ${v.needed ? 'needed' : ''}`}>{v.needed ? `High need · ${t.need}/100` : `Need ${t.need}/100`}</span></div>
+      <p className="muted tiny" style={{ margin: '6px 0 0' }}>Why here: {t.reason}</p>
       {decision ? <div className={`g-status ${decision}`}>{decision === 'accept' ? <><Check />Accepted · pending adult confirmation</> : 'Declined'}</div>
         : <div className="chip-row"><button className="btn btn-primary btn-sm" onClick={() => onDecide(t, 'accept')}>Accept</button><button className="btn btn-sm" onClick={() => onDecide(t, 'decline')}>Decline</button></div>}
     </article>

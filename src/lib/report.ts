@@ -2,7 +2,9 @@
 // dashboard uses. The Report tab previews it in an iframe; "Download" saves the exact same file; "Print / PDF"
 // prints the iframe. The report reflects: index weights, scope, sections, the Scenario lab's current settings, and
 // the organization's field logs (with their review status). All user-entered text is HTML-escaped.
-import type { MetaFile, UnitFeature } from './types';
+import type { ClimateFile, MetaFile, UnitFeature } from './types';
+import type { LiveAir, LiveWeather } from './hooks';
+import { unitNeeds } from './needs';
 import { confidenceFor, dominantDriver, type Baseline, type RiskScore, type RiskWeights } from './risk';
 import { opportunitiesFor, type Insight } from './insights';
 import { TIERS, tierFor } from './colors';
@@ -14,13 +16,15 @@ import { miniMapPaths } from './miniMap';
 export type Scope = 'all' | 'top10' | 'picks';
 export interface ReportOptions {
   title: string; author: string; organisation: string; scope: Scope; picks: string[]; verifiedOnly: boolean;
-  sections: { summary: boolean; findings: boolean; ranking: boolean; profiles: boolean; scenario: boolean; volunteer: boolean; method: boolean };
+  sections: { summary: boolean; findings: boolean; live: boolean; ranking: boolean; profiles: boolean; scenario: boolean; volunteer: boolean; method: boolean };
 }
 export interface ScenarioState { s: ScenarioInput; target: 'unit' | 'top5' | 'all'; unitId: string | null }
 export interface ReportContext {
   units: UnitFeature[]; scores: Map<string, RiskScore>; weights: RiskWeights; meta: MetaFile; insights: Insight[]; logs: VolunteerLog[];
   medians: { lstDay: number; lstNight: number; ndvi: number; density: number; health: number };
   baseline: Baseline; scenario: ScenarioState;
+  /** yearly climate record, and the live feeds. The report is rebuilt whenever these change. */
+  climate?: ClimateFile | null; live?: { air: LiveAir | null; weather: LiveWeather | null };
 }
 
 export const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
@@ -73,6 +77,26 @@ function mapSvg(units: UnitFeature[], scores: Map<string, RiskScore>) {
   return `<svg viewBox="0 0 520 360" width="100%" role="img" aria-label="Map of Karachi units coloured by heat-risk tier" style="background:#0b1a15;border-radius:10px">${paths.map((p) => { const s = scores.get(p.id)!; return `<path d="${p.d}" fill="${s.tier.color}" fill-opacity=".92" stroke="#0b1a15" stroke-width="1" fill-rule="evenodd"/>`; }).join('')}${paths.filter((p) => scores.get(p.id)!.rank <= 5).map((p) => `<g><circle cx="${p.cx.toFixed(1)}" cy="${p.cy.toFixed(1)}" r="9" fill="#0b1a15" stroke="#fff" stroke-width="1.5"/><text x="${p.cx.toFixed(1)}" y="${(p.cy + 3.5).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="#fff">${scores.get(p.id)!.rank}</text></g>`).join('')}</svg>`;
 }
 
+const PALETTE = ['#e8602c', '#d62f4b', '#6b58c9', '#1f9ab0', '#5fa82a', '#c98f2f'];
+/** Simple line chart (inline SVG, so it prints and downloads with the report). */
+function lineSvg(series: { name: string; pts: (number | null)[] }[], xs: string[], unit: string, label: string) {
+  const W = 560, H = 230, L = 44, R = 12, T = 12, B = 34;
+  const vals = series.flatMap((s) => s.pts).filter((v): v is number => v != null && Number.isFinite(v));
+  if (vals.length < 2) return '<p class="muted small">Not enough data for this chart yet.</p>';
+  let lo = Math.min(...vals), hi = Math.max(...vals); const pad = Math.max((hi - lo) * 0.12, 0.5); lo -= pad; hi += pad;
+  const x = (i: number) => L + (xs.length === 1 ? 0 : (i / (xs.length - 1)) * (W - L - R)), y = (v: number) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+  const grid = [0, 1, 2, 3, 4].map((k) => { const v = lo + ((hi - lo) * k) / 4; return `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" stroke="#e1e8e4"/><text x="${L - 6}" y="${(y(v) + 3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="#5d6b64">${v.toFixed(1)}</text>`; }).join('');
+  const step = Math.ceil(xs.length / 8);
+  const ticks = xs.map((t, i) => (i % step === 0 || i === xs.length - 1 ? `<text x="${x(i).toFixed(1)}" y="${H - 14}" text-anchor="middle" font-size="10" fill="#5d6b64">${esc(t)}</text>` : '')).join('');
+  const lines = series.map((s, k) => {
+    const c = PALETTE[k % PALETTE.length]; let d = '', pen = false;
+    s.pts.forEach((v, i) => { if (v == null) { pen = false; return; } d += `${pen ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`; pen = true; });
+    return `<path d="${d}" fill="none" stroke="${c}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>${s.pts.map((v, i) => (v == null ? '' : `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.6" fill="${c}"/>`)).join('')}`;
+  }).join('');
+  const legend = series.map((s, k) => `<span style="--c:${PALETTE[k % PALETTE.length]}">${esc(s.name)}</span>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(label)}"><text x="${L}" y="9" font-size="10" fill="#5d6b64">${esc(unit)}</text>${grid}${ticks}${lines}</svg><div class="legend">${legend}</div>`;
+}
+
 export function scopeUnits(o: Pick<ReportOptions, 'scope' | 'picks'>, c: Pick<ReportContext, 'units' | 'scores'>): UnitFeature[] {
   const ranked = [...c.units].sort((a, b) => c.scores.get(a.properties.id)!.rank - c.scores.get(b.properties.id)!.rank);
   if (o.scope === 'top10') return ranked.slice(0, 10);
@@ -86,7 +110,7 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
   const scoped = scopeUnits(o, c);
   const all = [...units].sort((a, b) => scores.get(a.properties.id)!.rank - scores.get(b.properties.id)!.rank);
   const seasons = [...(meta.lst?.seasons ?? [])].sort();
-  const seasonLabel = seasons.length > 1 ? `${seasons[0]}–${seasons[seasons.length - 1]}` : String(seasons[0] ?? '');
+  const seasonLabel = seasons.length > 1 ? `${seasons[0]} to ${seasons[seasons.length - 1]}` : String(seasons[0] ?? '');
   const hottest = [...units].filter((u) => u.properties.lst).sort((a, b) => b.properties.lst!.day - a.properties.lst!.day)[0];
   const top = all[0];
   const sev = all.filter((u) => ['severe', 'extreme'].includes(scores.get(u.properties.id)!.tier.key));
@@ -97,7 +121,7 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
   const who = [o.author && `Prepared by ${esc(o.author)}`, o.organisation && esc(o.organisation)].filter(Boolean).join(' · ');
   let n = 0; const out: string[] = [];
 
-  out.push(`<div class="page"><div class="cover"><div class="brand">${LOGO}<span>TerraWatch AI</span><small>Karachi heat report</small></div>
+  out.push(`<div class="page"><div class="cover"><div class="brand">${LOGO}<span>KarachAir</span><small>Karachi heat report</small></div>
     <h1>${esc(o.title || 'Karachi extreme-heat report')}</h1>${who ? `<div class="by">${who}</div>` : ''}
     <div class="chips"><span class="chip">${esc(fmtDate(new Date().toISOString()))}</span><span class="chip">Data build ${esc(fmtDate(meta.generatedAt))}</span><span class="chip">${o.scope === 'all' ? `All ${units.length} units` : o.scope === 'top10' ? 'Ten highest-risk units' : `${scoped.length} selected unit${scoped.length === 1 ? '' : 's'}`}</span><span class="chip">NASA MODIS · WorldPop · OSM · ERA5-Land</span></div></div><div class="thermal"></div><div class="body">`);
 
@@ -106,13 +130,13 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
     out.push(`${h2(++n, 'Executive summary')}
     <div class="kpis"><div class="kpi" style="--c:#6b58c9"><b>${fmtCompact(meta.totalPopulation)}</b><span>residents modelled in ${units.length} units</span></div>
     <div class="kpi" style="--c:#e8602c"><b>${fmtTemp(hottest?.properties.lst?.day)}</b><span>hottest afternoon surface · ${esc(hottest?.properties.short)}</span></div>
-    <div class="kpi" style="--c:#d62f4b"><b>${top ? scores.get(top.properties.id)!.index.toFixed(0) : '—'}</b><span>highest risk index · ${esc(top?.properties.short)}</span></div>
-    <div class="kpi" style="--c:#14805a"><b>${tr ? '+' + tr.annualMeanTmaxPerDecade.toFixed(2) + '°C' : '—'}</b><span>warming per decade (daily max, ERA5-Land)</span></div></div>
-    <p class="lede">Using NASA satellite surface temperature for the ${esc(seasonLabel)} hot seasons, WorldPop population, vegetation greenness and OpenStreetMap health facilities, TerraWatch AI ranks Karachi's ${units.length} administrative units by <i>relative</i> heat risk (hazard + exposure + vulnerability).</p>
+    <div class="kpi" style="--c:#d62f4b"><b>${top ? scores.get(top.properties.id)!.index.toFixed(0) : 'n/a'}</b><span>highest risk index · ${esc(top?.properties.short)}</span></div>
+    <div class="kpi" style="--c:#14805a"><b>${tr ? '+' + tr.annualMeanTmaxPerDecade.toFixed(2) + '°C' : 'n/a'}</b><span>warming per decade (daily max, ERA5-Land)</span></div></div>
+    <p class="lede">Using NASA satellite surface temperature for the ${esc(seasonLabel)} hot seasons, WorldPop population, vegetation greenness and OpenStreetMap health facilities, KarachAir ranks Karachi's ${units.length} administrative units by <i>relative</i> heat risk (hazard + exposure + vulnerability).</p>
     <p><b>${esc(top?.properties.name)}</b> has the highest combined risk; <b>${esc(hottest?.properties.name)}</b> has the hottest average afternoon surface (${fmtTemp(hottest?.properties.lst?.day)}, ${fmtDelta((hottest?.properties.lst?.day ?? 0) - medians.lstDay, 1)}°C vs the city median ${fmtTemp(medians.lstDay)}). ${sev.length} units rated Severe or Extreme hold about <b>${fmtCompact(sevPop)}</b> residents${meta.totalPopulation ? ` (${Math.round((sevPop / meta.totalPopulation) * 100)}% of those modelled)` : ''}.</p>
     <div class="stack">${tiers.map(({ t, k }) => `<i style="width:${(k / units.length) * 100}%;background:${t.color}"></i>`).join('')}</div>
     <div class="legend">${tiers.map(({ t, k }) => `<span style="--c:${t.color}">${t.label}: ${k} unit${k === 1 ? '' : 's'}</span>`).join('')}</div>
-    <div class="note">The index ranks units <i>relative to each other</i>. It is an explainable composite of measured indicators — not a trained machine-learning model and not a forecast.</div>`);
+    <div class="note">The index ranks units <i>relative to each other</i>. It is an explainable composite of measured indicators, not a trained machine-learning model and not a forecast.</div>`);
   }
 
   if (o.sections.findings) {
@@ -123,12 +147,37 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
       <p class="small muted" style="margin:8px 0 0"><span class="badge">${esc(f.confidence.level)} confidence</span> ${esc(f.confidence.reason)}</p></div>`);
   }
 
+  if (o.sections.live) {
+    const lw = c.live?.weather ?? null, la = c.live?.air ?? null;
+    const topUnits = all.slice(0, 5);
+    const clock = (ms?: number) => (ms ? new Date(ms).toLocaleString('en-GB', { timeZone: 'Asia/Karachi', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' PKT' : 'not available');
+    out.push(h2(++n, 'Live conditions and trends'));
+    out.push(`<p class="muted small">Live feeds refresh automatically every 10 minutes and this report updates with them. Weather updated ${esc(clock(lw?.fetchedAt))}; air quality updated ${esc(clock(la?.fetchedAt))}.</p>`);
+    const needs = unitNeeds({ units, scores, air: la, weather: lw, fieldCounts: new Map() }).slice(0, 5);
+    out.push(`<h3>Where volunteers are needed most right now</h3><p class="small muted">The volunteer hub builds its tasks from this ranking: heat-risk index, live PM2.5, live feels-like temperature and green space.</p>
+    <table><thead><tr><th>#</th><th>Neighbourhood</th><th>Need</th><th>Why</th></tr></thead><tbody>${needs.map((x, i) => `<tr><td>${i + 1}</td><td><b>${esc(x.name)}</b>${x.badWeather ? ' <span class="badge">bad weather</span>' : ''}</td><td>${x.priority}/100</td><td class="small">${esc(x.drivers.join(' · '))}</td></tr>`).join('')}</tbody></table>`);
+    if (lw) {
+      const dates = lw.byUnit[topUnits[0]?.properties.id]?.daily.map((d) => d.date.slice(5)) ?? [];
+      out.push(`<h3>7-day maximum temperature, highest-risk neighbourhoods (live forecast)</h3>${lineSvg(topUnits.map((u) => ({ name: u.properties.short, pts: lw.byUnit[u.properties.id]?.daily.map((d) => d.tmax) ?? [] })), dates, '°C', 'Seven-day maximum temperature forecast for the five highest-risk neighbourhoods')}`);
+    } else out.push('<div class="note warn">Live weather could not be loaded, so the forecast chart is not shown.</div>');
+    if (c.climate?.years?.length) {
+      const ys = c.climate.years.filter((y) => y.hotSeasonTmax != null);
+      out.push(`<h3>Hot-season maximum temperature by year (ERA5-Land)</h3>${lineSvg([{ name: 'Hot-season mean daily max', pts: ys.map((y) => y.hotSeasonTmax) }, { name: 'Annual mean daily max', pts: ys.map((y) => y.meanTmax) }], ys.map((y) => String(y.year)), '°C', 'Hot-season and annual maximum temperature by year')}`);
+    }
+    const yrs = [...new Set(topUnits.flatMap((u) => Object.keys(u.properties.lst?.byYear ?? {})))].sort();
+    if (yrs.length > 1) out.push(`<h3>Afternoon surface temperature by year, highest-risk neighbourhoods (NASA MODIS)</h3>${lineSvg(topUnits.map((u) => ({ name: u.properties.short, pts: yrs.map((y) => u.properties.lst?.byYear?.[y] ?? null) })), yrs, '°C', 'Afternoon land-surface temperature by year for the five highest-risk neighbourhoods')}`);
+    if (la) {
+      const pm = topUnits.map((u) => ({ n: u.properties.short, v: la.byUnit[u.properties.id]?.pm25 })).filter((r) => r.v != null);
+      if (pm.length) out.push(`<h3>Live PM2.5 now (µg/m³)</h3><div class="legend">${pm.map((r) => `<span style="--c:${(r.v as number) > 35 ? '#d62f4b' : '#14805a'}">${esc(r.n)}: <b>${(r.v as number).toFixed(0)}</b></span>`).join('')}</div>`);
+    }
+  }
+
   if (o.sections.ranking) {
     const rows = scoped.slice(0, 14).map((u) => { const s = scores.get(u.properties.id)!; return { name: u.properties.short, v: s.index, color: s.tier.color }; });
-    out.push(`${h2(++n, 'Heat risk ranking')}<p class="muted small">Heat Risk Index (0–100). Weights — hazard ${weights.hazard.toFixed(2)}, exposure ${weights.exposure.toFixed(2)}, vulnerability ${weights.vulnerability.toFixed(2)}. Numbers on the map are the five highest-ranked units.</p>
+    out.push(`${h2(++n, 'Heat risk ranking')}<p class="muted small">Heat Risk Index (0 to 100). Weights, hazard ${weights.hazard.toFixed(2)}, exposure ${weights.exposure.toFixed(2)}, vulnerability ${weights.vulnerability.toFixed(2)}. Numbers on the map are the five highest-ranked units.</p>
     <div class="two"><div>${mapSvg(units, scores)}</div><div>${barSvg(rows)}</div></div>
     <table><thead><tr><th>#</th><th>Unit</th><th>Tier</th><th class="n">Index</th><th class="n">Afternoon LST</th><th class="n">Night LST</th><th class="n">NDVI</th><th class="n">Residents</th><th class="n">Health/100k</th></tr></thead><tbody>
-    ${scoped.map((u) => { const s = scores.get(u.properties.id)!, p = u.properties; return `<tr><td>${s.rank}</td><td><b>${esc(p.name)}</b></td><td>${pill(s)}</td><td class="n">${s.index.toFixed(0)}</td><td class="n">${fmtTemp(p.lst?.day)}</td><td class="n">${fmtTemp(p.lst?.night)}</td><td class="n">${p.ndvi?.toFixed(2) ?? '—'}</td><td class="n">${fmtCompact(p.population)}</td><td class="n">${p.infra?.healthPer100k?.toFixed(1) ?? '—'}</td></tr>`; }).join('')}</tbody></table>`);
+    ${scoped.map((u) => { const s = scores.get(u.properties.id)!, p = u.properties; return `<tr><td>${s.rank}</td><td><b>${esc(p.name)}</b></td><td>${pill(s)}</td><td class="n">${s.index.toFixed(0)}</td><td class="n">${fmtTemp(p.lst?.day)}</td><td class="n">${fmtTemp(p.lst?.night)}</td><td class="n">${p.ndvi?.toFixed(2) ?? 'n/a'}</td><td class="n">${fmtCompact(p.population)}</td><td class="n">${p.infra?.healthPer100k?.toFixed(1) ?? 'n/a'}</td></tr>`; }).join('')}</tbody></table>`);
   }
 
   if (o.sections.profiles) {
@@ -138,10 +187,10 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
       const p = u.properties, s = scores.get(p.id)!, conf = confidenceFor(u), opps = opportunitiesFor(u, medians, meta);
       const bar = (label: string, v: number, col: string) => `<div class="pill"><span style="width:96px">${label}</span><span class="t"><i style="width:${v.toFixed(0)}%;background:${col}"></i></span><b>${v.toFixed(0)}</b></div>`;
       out.push(`<div class="prof" style="--c:${s.tier.color}"><div class="prof-head"><div><h3 style="font-size:18px">${esc(p.name)}</h3><span class="small muted">${p.type === 'town' ? 'Town' : 'Cantonment'} · ${p.areaKm2} km² · rank ${s.rank} of ${units.length} · mainly driven by ${dominantDriver(s, weights)}</span></div><div style="text-align:right">${pill(s)}<div style="font-size:24px;font-weight:700;letter-spacing:-.04em">${s.index.toFixed(0)}</div></div></div>
-      <div class="grid"><div><b>${fmtTemp(p.lst?.day)}</b><span>afternoon surface temp</span></div><div><b>${fmtTemp(p.lst?.night)}</b><span>night surface temp</span></div><div><b>${fmtTemp(p.lst?.peak8Day?.value)}</b><span>hottest 8-day composite</span></div><div><b>${p.ndvi?.toFixed(2) ?? '—'}</b><span>vegetation (NDVI)</span></div><div><b>${fmtCompact(p.population)}</b><span>residents · ${fmtInt(p.popDensity)}/km²</span></div><div><b>${p.infra?.healthFacilities ?? '—'}</b><span>mapped health facilities</span></div></div>
+      <div class="grid"><div><b>${fmtTemp(p.lst?.day)}</b><span>afternoon surface temp</span></div><div><b>${fmtTemp(p.lst?.night)}</b><span>night surface temp</span></div><div><b>${fmtTemp(p.lst?.peak8Day?.value)}</b><span>hottest 8-day composite</span></div><div><b>${p.ndvi?.toFixed(2) ?? 'n/a'}</b><span>vegetation (NDVI)</span></div><div><b>${fmtCompact(p.population)}</b><span>residents · ${fmtInt(p.popDensity)}/km²</span></div><div><b>${p.infra?.healthFacilities ?? 'n/a'}</b><span>mapped health facilities</span></div></div>
       ${bar('Hazard', s.hazard, '#e8602c')}${bar('Exposure', s.exposure, '#6b58c9')}${bar('Vulnerability', s.vulnerability, '#5fa82a')}
-      <p class="small" style="margin:10px 0 2px"><b>Opportunities</b></p><ul class="small">${opps.map((x) => `<li><b>${esc(x.title)}</b> — ${esc(x.why)}</li>`).join('')}</ul>
-      <p class="small muted" style="margin:0">Data confidence: <b>${esc(conf.level)}</b> — ${esc(conf.reason)}</p></div>`);
+      <p class="small" style="margin:10px 0 2px"><b>Opportunities</b></p><ul class="small">${opps.map((x) => `<li><b>${esc(x.title)}</b>, ${esc(x.why)}</li>`).join('')}</ul>
+      <p class="small muted" style="margin:0">Data confidence: <b>${esc(conf.level)}</b>, ${esc(conf.reason)}</p></div>`);
     }
   }
 
@@ -149,7 +198,7 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
     out.push(h2(++n, 'Scenario analysis'));
     const { s, target, unitId } = scenario;
     const touched = s.warming !== 0 || s.dNdvi !== 0 || s.coolShare !== 0;
-    if (!touched) out.push('<div class="note">No scenario has been set. Open the <b>Scenario lab</b> tab, adjust the sliders, then return here — this section updates automatically.</div>');
+    if (!touched) out.push('<div class="note">No scenario has been set. Open the <b>Scenario lab</b> tab, adjust the sliders, then return here, this section updates automatically.</div>');
     else {
       const ranked = all;
       const targetIds = new Set(target === 'unit' ? [unitId ?? ranked[0].properties.id] : target === 'top5' ? ranked.slice(0, 5).map((u) => u.properties.id) : units.map((u) => u.properties.id));
@@ -159,8 +208,8 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
       const rows = canned.map(([name, sc]) => ({ name, v: runPortfolio(units, targetIds, baseline, weights, sc, reg).popWeightedDLst }));
       out.push(`<p>Applied to <b>${esc(label)}</b>. This section reflects the settings currently chosen in the Scenario lab.</p>
       <table><thead><tr><th>Setting</th><th class="n">Value</th></tr></thead><tbody>
-      <tr><td>Background warming (what-if, not a forecast)</td><td class="n">+${s.warming.toFixed(1)}°C</td></tr><tr><td>Greening — added vegetation</td><td class="n">+${s.dNdvi.toFixed(2)} NDVI</td></tr>
-      <tr><td>Cool roofs / reflective surfaces — share treated</td><td class="n">${Math.round(s.coolShare * 100)}%</td></tr><tr><td>Assumed surface cooling of treated area <span class="badge">assumption</span></td><td class="n">${s.coolEffect.toFixed(1)}°C</td></tr></tbody></table>`);
+      <tr><td>Background warming (what-if, not a forecast)</td><td class="n">+${s.warming.toFixed(1)}°C</td></tr><tr><td>Greening, added vegetation</td><td class="n">+${s.dNdvi.toFixed(2)} NDVI</td></tr>
+      <tr><td>Cool roofs / reflective surfaces, share treated</td><td class="n">${Math.round(s.coolShare * 100)}%</td></tr><tr><td>Assumed surface cooling of treated area <span class="badge">assumption</span></td><td class="n">${s.coolEffect.toFixed(1)}°C</td></tr></tbody></table>`);
       if (target === 'unit') {
         const u = units.find((x) => x.properties.id === (unitId ?? ranked[0].properties.id))!;
         const r = runScenario(u, baseline, weights, s, reg);
@@ -177,7 +226,7 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
         <div class="kpi" style="--c:#d62f4b"><b>${port.meanIndex.before.toFixed(1)} → ${port.meanIndex.after.toFixed(1)}</b><span>mean risk index</span></div><div class="kpi" style="--c:#14805a"><b>${fmtCompact(port.peopleSevere.before)} → ${fmtCompact(port.peopleSevere.after)}</b><span>residents in Severe/Extreme units</span></div></div>`);
       }
       out.push(`<h3>Which lever does most?</h3><p class="muted small">Population-weighted change in afternoon surface temperature across ${esc(label)} (negative is cooler).</p>${deltaSvg(rows)}
-      <div class="note warn"><b>How to read this.</b> ΔLST = warming + β·ΔNDVI − treated share × assumed cooling.${reg ? ` β = ${reg.slopePerNdvi.toFixed(1)}°C per 1.0 NDVI, estimated from ${reg.n.toLocaleString()} Karachi pixels with R² = ${reg.r2.toFixed(2)} — a weak association, so greening effects are indicative only.` : ''} The cool-surface effect is an assumption, not a Karachi measurement. Night-time temperature responds only to background warming.</div>`);
+      <div class="note warn"><b>How to read this.</b> ΔLST = warming + β·ΔNDVI − treated share × assumed cooling.${reg ? ` β = ${reg.slopePerNdvi.toFixed(1)}°C per 1.0 NDVI, estimated from ${reg.n.toLocaleString()} Karachi pixels with R² = ${reg.r2.toFixed(2)}, a weak association, so greening effects are indicative only.` : ''} The cool-surface effect is an assumption, not a Karachi measurement. Night-time temperature responds only to background warming.</div>`);
     }
   }
 
@@ -192,9 +241,9 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
       out.push(`<div class="kpis"><div class="kpi" style="--c:#14805a"><b>${all_.length}</b><span>field logs from ${new Set(all_.map((l) => l.volunteer || 'anonymous')).size} volunteer(s)</span></div><div class="kpi" style="--c:#2a9d6b"><b>${ver}</b><span>verified by the organization</span></div><div class="kpi" style="--c:#e29a2a"><b>${pend}</b><span>awaiting review</span></div><div class="kpi" style="--c:#d62f4b"><b>${flag}</b><span>flagged (excluded below)</span></div></div>
       <p>${o.verifiedOnly ? 'Only <b>verified</b> logs are shown.' : 'Verified and awaiting-review logs are shown; flagged logs are excluded.'} These are human field notes, kept separate from the satellite-derived measurements.</p>
       <table><thead><tr><th>Unit</th><th class="n">Logs</th><th class="n">Field air (mean)</th><th class="n">Field surface (mean)</th><th class="n">Satellite afternoon LST</th><th class="n">Surface vs satellite</th></tr></thead><tbody>
-      ${[...byUnit.entries()].map(([id, ls]) => { const u = units.find((x) => x.properties.id === id); const m = (k: 'air' | 'surface') => { const v = ls.filter((l) => l.measure === k && l.tempC != null).map((l) => l.tempC as number); return v.length ? { t: v.reduce((a, b) => a + b, 0) / v.length, n: v.length } : null; }; const a = m('air'), sf = m('surface'); return `<tr><td><b>${esc(uname(id === '_none' ? null : id))}</b></td><td class="n">${ls.length}</td><td class="n">${a ? `${a.t.toFixed(1)}°C (n=${a.n})` : '—'}</td><td class="n">${sf ? `${sf.t.toFixed(1)}°C (n=${sf.n})` : '—'}</td><td class="n">${fmtTemp(u?.properties.lst?.day)}</td><td class="n">${sf && u?.properties.lst ? `${fmtDelta(sf.t - u.properties.lst.day)}°C` : '—'}</td></tr>`; }).join('')}</tbody></table>
+      ${[...byUnit.entries()].map(([id, ls]) => { const u = units.find((x) => x.properties.id === id); const m = (k: 'air' | 'surface') => { const v = ls.filter((l) => l.measure === k && l.tempC != null).map((l) => l.tempC as number); return v.length ? { t: v.reduce((a, b) => a + b, 0) / v.length, n: v.length } : null; }; const a = m('air'), sf = m('surface'); return `<tr><td><b>${esc(uname(id === '_none' ? null : id))}</b></td><td class="n">${ls.length}</td><td class="n">${a ? `${a.t.toFixed(1)}°C (n=${a.n})` : 'n/a'}</td><td class="n">${sf ? `${sf.t.toFixed(1)}°C (n=${sf.n})` : 'n/a'}</td><td class="n">${fmtTemp(u?.properties.lst?.day)}</td><td class="n">${sf && u?.properties.lst ? `${fmtDelta(sf.t - u.properties.lst.day)}°C` : 'n/a'}</td></tr>`; }).join('')}</tbody></table>
       <table><thead><tr><th>Observed</th><th>Unit / place</th><th>Type</th><th class="n">Reading</th><th>Status</th><th>Notes</th></tr></thead><tbody>
-      ${logs.slice(0, 40).map((l) => `<tr><td>${esc(new Date(l.observedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }))}<br><span class="muted small">${esc(l.volunteer || 'anonymous')}</span></td><td>${esc(uname(l.unitId))}${l.place ? `<br><span class="muted small">${esc(l.place)}</span>` : ''}</td><td>${esc(kindOf(l.kind).label)}</td><td class="n">${l.tempC != null ? `${l.tempC.toFixed(1)}°C ${esc(l.measure ?? '')}` : '—'}</td><td>${l.status === 'verified' ? '<span class="tier" style="background:#2a9d6b">Verified</span>' : '<span class="badge">Awaiting</span>'}</td><td>${esc(l.notes)}</td></tr>`).join('')}</tbody></table>
+      ${logs.slice(0, 40).map((l) => `<tr><td>${esc(new Date(l.observedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }))}<br><span class="muted small">${esc(l.volunteer || 'anonymous')}</span></td><td>${esc(uname(l.unitId))}${l.place ? `<br><span class="muted small">${esc(l.place)}</span>` : ''}</td><td>${esc(kindOf(l.kind).label)}</td><td class="n">${l.tempC != null ? `${l.tempC.toFixed(1)}°C ${esc(l.measure ?? '')}` : 'n/a'}</td><td>${l.status === 'verified' ? '<span class="tier" style="background:#2a9d6b">Verified</span>' : '<span class="badge">Awaiting</span>'}</td><td>${esc(l.notes)}</td></tr>`).join('')}</tbody></table>
       ${logs.length > 40 ? `<p class="small muted">Showing the 40 most recent of ${logs.length} logs.</p>` : ''}
       <div class="note">A handheld <i>air</i> reading and a satellite <i>surface</i> temperature measure different things, so gaps between them are expected. Surface readings are the closer comparison.</div>`);
     }
@@ -202,7 +251,7 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
 
   if (o.sections.method) {
     out.push(`${h2(++n, 'Data, method and limits')}
-    <p><b>Index.</b> Risk = hazard + exposure + vulnerability. Hazard blends afternoon (${Math.round((1 - weights.night) * 100)}%) and night-time (${Math.round(weights.night * 100)}%) land-surface temperature; exposure is log population density; vulnerability blends vegetation deficit (${Math.round(weights.green * 100)}%) and the gap in mapped health-facility access (${Math.round((1 - weights.green) * 100)}%). Each component is min–max scaled across the ${units.length} units (0 = best, 100 = worst). Tier cutoffs are 40 / 52 / 60 / 68 and describe standing within Karachi, not absolute danger.</p>
+    <p><b>Index.</b> Risk = hazard + exposure + vulnerability. Hazard blends afternoon (${Math.round((1 - weights.night) * 100)}%) and night-time (${Math.round(weights.night * 100)}%) land-surface temperature; exposure is log population density; vulnerability blends vegetation deficit (${Math.round(weights.green * 100)}%) and the gap in mapped health-facility access (${Math.round((1 - weights.green) * 100)}%). Each component is min to max scaled across the ${units.length} units (0 = best, 100 = worst). Tier cutoffs are 40 / 52 / 60 / 68 and describe standing within Karachi, not absolute danger.</p>
     <table><thead><tr><th>Source</th><th>Provider &amp; licence</th><th>Notes</th></tr></thead><tbody>${meta.sources.map((x) => `<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.provider)}<br><span class="muted small">${esc(x.license)}</span></td><td class="small">${esc([x.detail, x.limits && 'Limits: ' + x.limits].filter(Boolean).join(' '))}</td></tr>`).join('')}</tbody></table>
     <p><b>Limitations</b></p><ul class="small">
     <li>Satellite values are <i>surface</i> temperatures at ~1 km, not air temperature; cloud-contaminated pixels are excluded; Aqua overpasses at ~13:30, near but not at the daily peak.</li>
@@ -213,6 +262,6 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
     <li>Field logs are volunteer observations; only those marked <i>verified</i> have been reviewed by the organization.</li></ul>`);
   }
 
-  out.push(`</div><div class="foot"><span>Generated by TerraWatch AI from open data. Every figure traces to a public source; interpretations are rule-generated and labelled as derived.</span><span>${esc(o.organisation || '')}</span></div></div>`);
+  out.push(`</div><div class="foot"><span>Generated by KarachAir from open data. Every figure traces to a public source; interpretations are rule-generated and labelled as derived.</span><span>${esc(o.organisation || '')}</span></div></div>`);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(o.title || 'Karachi heat report')}</title><style>${CSS}</style></head><body>${out.join('\n')}</body></html>`;
 }

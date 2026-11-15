@@ -22,9 +22,9 @@ export function RankingChart({ units, scores, metric, selected, onPick, order = 
   const h = rows.length * 27 + 36;
   const lo = Math.min(0, ...rows.map((r) => r.v));
   return (
-    <ChartFrame title={`Ranking — ${m.label.toLowerCase()}`} height={h} subtitle={`${m.blurb} Click a bar to pick units for comparison.`}
+    <ChartFrame title={`Ranking, ${m.label.toLowerCase()}`} height={h} subtitle={`${m.blurb} Click a bar to pick units for comparison.`}
       table={{ head: ['Rank', 'Unit', `${m.short} (${m.unit || 'index'})`], rows: rows.map((r, i) => [i + 1, r.full, m.fmt(r.v)]) }}
-      source="TerraWatch dataset (see Methodology)">
+      source="KarachAir dataset (see Methodology)">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={rows} layout="vertical" margin={{ top: 0, right: 56, left: 4, bottom: 0 }} barCategoryGap={5}>
           <CartesianGrid stroke="rgba(236,240,226,0.07)" horizontal={false} />
@@ -108,7 +108,7 @@ export function RadarCompare({ units, scores, picks, height = 340 }: { units: Un
     <ChartFrame title="Risk drivers compared" height={height} subtitle="Each driver scaled 0 (best unit in Karachi) to 100 (worst). A bigger shape means a bigger problem."
       table={{ head: ['Driver', 'City median', ...sel.map((u) => u.properties.short)], rows: data.map((d) => [d.axis as string, d['City median'] as number, ...sel.map((u) => d[u.properties.short] as number)]) }}
       legend={<Legend items={[{ color: '#959c90', label: 'City median', kind: 'line' }, ...sel.map((u, i) => ({ color: slotColor(i), label: u.properties.short }))]} />}
-      source="TerraWatch Heat Risk Index components">
+      source="KarachAir Heat Risk Index components">
       <ResponsiveContainer width="100%" height="100%">
         <RadarChart data={data} outerRadius="72%">
           <PolarGrid stroke="rgba(236,240,226,0.12)" />
@@ -137,16 +137,16 @@ export function SeasonLines({ units, picks, height = 300 }: { units: UnitFeature
   const vals = data.flatMap((d) => Object.entries(d).filter(([k]) => k !== 'year').map(([, v]) => v as number | null)).filter((v): v is number => v != null);
   return (
     <ChartFrame title="Hot-season heat, season by season" height={height}
-      subtitle="Mean afternoon land-surface temperature of each May–June season (satellite). A few seasons show variability, not a climate trend."
+      subtitle="Mean afternoon land-surface temperature of each May to June season (satellite). A few seasons show variability, not a climate trend."
       legend={<Legend items={[{ color: '#959c90', label: 'All units (mean)', kind: 'line' }, ...sel.map((u, i) => ({ color: slotColor(i), label: u.properties.short, kind: 'line' as const }))]} />}
-      table={{ head: ['Season', 'All units', ...sel.map((u) => u.properties.short)], rows: data.map((d) => [d.year as string, d['All units'] != null ? (d['All units'] as number).toFixed(1) : '—', ...sel.map((u) => (d[u.properties.short] != null ? (d[u.properties.short] as number).toFixed(1) : '—'))]) }}
+      table={{ head: ['Season', 'All units', ...sel.map((u) => u.properties.short)], rows: data.map((d) => [d.year as string, d['All units'] != null ? (d['All units'] as number).toFixed(1) : 'n/a', ...sel.map((u) => (d[u.properties.short] != null ? (d[u.properties.short] as number).toFixed(1) : 'n/a'))]) }}
       source="NASA MODIS/Aqua MYD11A2, 1 km, quality-filtered">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 16, left: -4, bottom: 0 }}>
           <CartesianGrid {...GRID} />
           <XAxis dataKey="year" tick={AX.tick} axisLine={AX.line} tickLine={false} />
           <YAxis tick={AX.tick} axisLine={false} tickLine={false} width={44} domain={[Math.floor(Math.min(...vals) - 0.5), Math.ceil(Math.max(...vals) + 0.5)]} tickFormatter={(v: number) => `${v}°`} />
-          <Tooltip cursor={{ stroke: 'rgba(236,240,226,0.3)' }} content={({ active, payload, label }) => active && payload?.length ? <TooltipBox title={`${label} season`} rows={payload.map((p) => ({ color: p.stroke as string, label: String(p.name), value: p.value != null ? fmtTemp(p.value as number) : '—' }))} /> : null} />
+          <Tooltip cursor={{ stroke: 'rgba(236,240,226,0.3)' }} content={({ active, payload, label }) => active && payload?.length ? <TooltipBox title={`${label} season`} rows={payload.map((p) => ({ color: p.stroke as string, label: String(p.name), value: p.value != null ? fmtTemp(p.value as number) : 'n/a' }))} /> : null} />
           <Line dataKey="All units" stroke="#959c90" strokeWidth={2} dot={{ r: 4, fill: '#959c90', stroke: 'var(--surface-1)', strokeWidth: 2 }} isAnimationActive={false} />
           {sel.map((u, i) => <Line key={u.properties.id} dataKey={u.properties.short} stroke={slotColor(i)} strokeWidth={2} dot={{ r: 4, fill: slotColor(i), stroke: 'var(--surface-1)', strokeWidth: 2 }} activeDot={{ r: 6 }} connectNulls isAnimationActive={false} />)}
         </LineChart>

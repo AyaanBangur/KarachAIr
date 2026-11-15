@@ -19,21 +19,21 @@ export function TrendsTab({ picks }: { picks: string[] }) {
         <>
           <div className="trend-stats">
             <StatTile icon={<Thermometer />} tone="var(--c-heat)" label={`Annual Tmax trend since ${tr.from}`} value={`${fmtDelta(tr.annualMeanTmaxPerDecade, 2)}°C / decade`} sub={`± ${tr.annualCi95.toFixed(2)} (95% CI) · R² ${tr.annualR2.toFixed(2)}`} />
-            <StatTile icon={<Flame />} tone="var(--c-alert)" label="Hot-season (May–Jun) Tmax trend" value={`${fmtDelta(tr.hotSeasonTmaxPerDecade, 2)}°C / decade`} sub={`± ${tr.hotSeasonCi95.toFixed(2)} · R² ${tr.hotSeasonR2.toFixed(2)}`} />
+            <StatTile icon={<Flame />} tone="var(--c-alert)" label="Hot-season (May to Jun) Tmax trend" value={`${fmtDelta(tr.hotSeasonTmaxPerDecade, 2)}°C / decade`} sub={`± ${tr.hotSeasonCi95.toFixed(2)} · R² ${tr.hotSeasonR2.toFixed(2)}`} />
             {hot && <StatTile icon={<Thermometer />} tone="var(--c-warn)" label="Warmest complete year on record" value={String(hot.year)} sub={`mean daily max ${hot.meanTmax.toFixed(1)}°C`} />}
-            {recent && <StatTile icon={<Thermometer />} tone="var(--c-cool)" label={`Latest complete year (${recent.year})`} value={recent.anomaly != null ? `${fmtDelta(recent.anomaly, 2)}°C` : '—'} sub="vs 1991–2020 mean" />}
+            {recent && <StatTile icon={<Thermometer />} tone="var(--c-cool)" label={`Latest complete year (${recent.year})`} value={recent.anomaly != null ? `${fmtDelta(recent.anomaly, 2)}°C` : 'n/a'} sub="vs 1991 to 2020 mean" />}
           </div>
           <div className="trend-grid">
             <AnomalyChart climate={climate} height={300} />
             <ProfileChart climate={climate} height={300} />
           </div>
         </>
-      ) : <InfoNote>Climate record not available — run <code>npm run data</code>.</InfoNote>}
+      ) : <InfoNote>Climate record not available, run <code>npm run data</code>.</InfoNote>}
       <div className="trend-grid">
         {data.meta.exposure.length > 0 && <ExposureCard meta={data.meta} />}
         <SeasonLines units={data.units} picks={seasonPicks} />
       </div>
-      <InfoNote>Air-temperature charts use ERA5-Land, a ~9 km model reanalysis for central Karachi (a single grid cell). It shows the regional signal; neighbourhood differences come from the satellite surface-temperature layers. Different quantities — air at 2 m versus the ground surface — so their numbers are not interchangeable.</InfoNote>
+      <InfoNote>Air-temperature charts use ERA5-Land, a ~9 km model reanalysis for central Karachi (a single grid cell). It shows the regional signal; neighbourhood differences come from the satellite surface-temperature layers. Different quantities, air at 2 m versus the ground surface, so their numbers are not interchangeable.</InfoNote>
     </div>
   );
 }

@@ -22,7 +22,7 @@ export function CompareTab({ picks, setPicks, onOpenUnit }: { picks: string[]; s
     { label: 'Population', get: (u) => fmtCompact(u.properties.population) },
     { label: 'Density (per km²)', get: (u) => fmtInt(u.properties.popDensity), med: fmtInt(medians.density) },
     { label: 'Health facilities per 100k', get: (u) => fmtDec(u.properties.infra?.healthPer100k, 1), med: medians.health.toFixed(1) },
-    { label: 'Mapped green space', get: (u) => (u.properties.infra ? `${(u.properties.infra.greenShare * 100).toFixed(1)}%` : '—') },
+    { label: 'Mapped green space', get: (u) => (u.properties.infra ? `${(u.properties.infra.greenShare * 100).toFixed(1)}%` : 'n/a') },
   ];
 
   return (
@@ -68,7 +68,7 @@ export function CompareTab({ picks, setPicks, onOpenUnit }: { picks: string[]; s
             <div className="table-wrap">
               <table className="data-table">
                 <thead><tr><th>Indicator</th>{sel.map((u, i) => <th key={u.properties.id}><i className="dot-sq" style={{ background: slotColor(i) }} />{u.properties.short}</th>)}<th>Median</th></tr></thead>
-                <tbody>{rows.map((r) => <tr key={r.label}><td>{r.label}</td>{sel.map((u) => <td key={u.properties.id} className="num">{r.get(u)}</td>)}<td className="num muted">{r.med ?? '—'}</td></tr>)}</tbody>
+                <tbody>{rows.map((r) => <tr key={r.label}><td>{r.label}</td>{sel.map((u) => <td key={u.properties.id} className="num">{r.get(u)}</td>)}<td className="num muted">{r.med ?? 'n/a'}</td></tr>)}</tbody>
               </table>
             </div>
           </section>

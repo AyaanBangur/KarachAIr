@@ -1,4 +1,4 @@
-// TerraWatch AI data pipeline — fetches REAL open data and writes static JSON to public/data/.
+// KarachAir data pipeline — fetches REAL open data and writes static JSON to public/data/.
 //   node scripts/pipeline/run.mjs            full run (satellite stage takes ~10-25 min the first time; everything is cached)
 //   node scripts/pipeline/run.mjs --only=boundaries,worldpop,osm,climate
 //   node scripts/pipeline/run.mjs --skip-modis

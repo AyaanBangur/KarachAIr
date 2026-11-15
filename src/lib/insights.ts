@@ -22,7 +22,7 @@ export function buildCityInsights(units: UnitFeature[], scores: Map<string, Risk
   const mHealth = median(units.map((u) => u.properties.infra?.healthPer100k).filter((v): v is number => v != null));
   const reg = meta.lst?.regression ?? null;
   const ss = [...(meta.lst?.seasons ?? [])].sort();
-  const seasons = ss.length > 1 ? `${ss[0]}–${ss[ss.length - 1]}` : String(ss[0] ?? '');
+  const seasons = ss.length > 1 ? `${ss[0]} to ${ss[ss.length - 1]}` : String(ss[0] ?? '');
 
   // 1 — hottest surface
   const hottest = hi(units, (u) => u.properties.lst?.day)[0];
@@ -39,7 +39,7 @@ export function buildCityInsights(units: UnitFeature[], scores: Map<string, Risk
         { label: 'Hottest 1 km pixel (mean)', value: fmtTemp(l.dayHottestPixel), kind: 'measured' },
       ],
       confidence: confidenceFor(hottest),
-      how: `Mean of NASA MODIS/Aqua afternoon (~13:30 local) land-surface temperature, area-weighted over the unit, across all clear-sky 8-day composites from 1 May–30 Jun, ${seasons}.`,
+      how: `Mean of NASA MODIS/Aqua afternoon (~13:30 local) land-surface temperature, area-weighted over the unit, across all clear-sky 8-day composites from 1 May to 30 Jun, ${seasons}.`,
     });
   }
 
@@ -60,7 +60,7 @@ export function buildCityInsights(units: UnitFeature[], scores: Map<string, Risk
         { label: 'Vulnerability', value: top.vulnerability.toFixed(0), kind: 'derived' },
       ],
       confidence: confidenceFor(topUnit),
-      how: 'Heat Risk Index = weighted sum of three 0–100 components, each min–max scaled across the 24 units. Weights are adjustable in the Method lab.',
+      how: 'Heat Risk Index = weighted sum of three 0 to 100 components, each min to max scaled across the 24 units. Weights are adjustable in the Method lab.',
     });
   }
 
@@ -115,7 +115,7 @@ export function buildCityInsights(units: UnitFeature[], scores: Map<string, Risk
       body: `${gap.properties.name} is among the 8 hottest units and home to ${fmtCompact(gap.properties.population)} people, but has ${i.healthFacilities} mapped hospitals/clinics (${i.healthPer100k?.toFixed(1)} per 100k vs a city median of ${mHealth.toFixed(1)}). OpenStreetMap coverage is uneven, so verify locally before acting.`,
       evidence: [
         { label: 'Mapped hospitals + clinics', value: fmtInt(i.healthFacilities), kind: 'measured' },
-        { label: 'Per 100k residents', value: i.healthPer100k?.toFixed(1) ?? '—', kind: 'derived' },
+        { label: 'Per 100k residents', value: i.healthPer100k?.toFixed(1) ?? 'n/a', kind: 'derived' },
         { label: 'City median per 100k', value: mHealth.toFixed(1), kind: 'derived' },
       ],
       confidence: { level: 'low', reason: 'Counts come from OpenStreetMap volunteers and under-count informal clinics.' },
@@ -149,11 +149,11 @@ export function buildCityInsights(units: UnitFeature[], scores: Map<string, Risk
       id: 'trend', tone: 'heat', icon: 'trend',
       title: 'Long-run warming signal',
       headline: `+${tr.annualMeanTmaxPerDecade.toFixed(2)}°C per decade in daily maximum temperature`,
-      body: `ERA5-Land reanalysis for central Karachi shows annual mean daily maximum temperature rising ${tr.annualMeanTmaxPerDecade.toFixed(2)} ± ${tr.annualCi95.toFixed(2)}°C per decade over ${tr.from}–${tr.to}. For the May–June hot season the trend is ${tr.hotSeasonTmaxPerDecade.toFixed(2)} ± ${tr.hotSeasonCi95.toFixed(2)}°C per decade. This is a ~9 km model reanalysis, not a station record.`,
+      body: `ERA5-Land reanalysis for central Karachi shows annual mean daily maximum temperature rising ${tr.annualMeanTmaxPerDecade.toFixed(2)} ± ${tr.annualCi95.toFixed(2)}°C per decade over ${tr.from} to ${tr.to}. For the May to June hot season the trend is ${tr.hotSeasonTmaxPerDecade.toFixed(2)} ± ${tr.hotSeasonCi95.toFixed(2)}°C per decade. This is a ~9 km model reanalysis, not a station record.`,
       evidence: [
         { label: 'Annual Tmax trend / decade', value: `${fmtDelta(tr.annualMeanTmaxPerDecade, 2)}°C`, kind: 'derived' },
         { label: 'Hot-season Tmax trend / decade', value: `${fmtDelta(tr.hotSeasonTmaxPerDecade, 2)}°C`, kind: 'derived' },
-        { label: 'Period', value: `${tr.from}–${tr.to}`, kind: 'measured' },
+        { label: 'Period', value: `${tr.from} to ${tr.to}`, kind: 'measured' },
       ],
       confidence: { level: tr.annualR2 > 0.4 ? 'high' : 'medium', reason: `Linear fit R² = ${tr.annualR2.toFixed(2)} over ${tr.to - tr.from + 1} years of reanalysis data.` },
       how: 'Ordinary least squares on annual means of daily maximum 2 m temperature from ERA5-Land (Open-Meteo archive), complete years only.',
@@ -189,7 +189,7 @@ export function opportunitiesFor(u: UnitFeature, medians: { ndvi: number; health
     out.push({
       id: 'cool-surfaces', tone: 'heat', title: 'Cool roofs and reflective pavements',
       why: `Afternoon surface temperature is ${fmtDelta(p.lst.day - medians.lstDay)}°C above the city median.`,
-      effect: 'Effect size depends on local materials — test it in the Scenario Lab with your own assumption.',
+      effect: 'Effect size depends on local materials, test it in the Scenario Lab with your own assumption.',
     });
   }
   if (p.infra?.healthPer100k != null && p.infra.healthPer100k < medians.health && (p.population ?? 0) > 300000) {

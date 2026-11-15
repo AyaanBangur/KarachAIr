@@ -1,4 +1,4 @@
-// TerraWatch Heat Risk Index (HRI) — a transparent, explainable composite.
+// KarachAir Heat Risk Index (HRI) — a transparent, explainable composite.
 // It follows the standard disaster-risk framing (IPCC AR5/AR6): RISK = HAZARD + EXPOSURE + VULNERABILITY.
 // This is an analytical index built from measured indicators, NOT a trained machine-learning model.
 //
@@ -24,10 +24,10 @@ export interface Baseline { lstDay: Range; lstNight: Range; logDensity: Range; n
 
 export interface RiskScore {
   id: string;
-  hazard: number; exposure: number; vulnerability: number; // 0–100 each
-  index: number;                                            // 0–100 (can exceed 100 only in what-if scenarios)
+  hazard: number; exposure: number; vulnerability: number; // 0 to 100 each
+  index: number;                                            // 0 to 100 (can exceed 100 only in what-if scenarios)
   tier: Tier; rank: number; partial: boolean;
-  parts: { lstDay: number; lstNight: number; density: number; greenDeficit: number; healthGap: number }; // normalised 0–1
+  parts: { lstDay: number; lstNight: number; density: number; greenDeficit: number; healthGap: number }; // normalised 0 to 1
 }
 
 const rng = (xs: number[]): Range => [Math.min(...xs), Math.max(...xs)];
@@ -89,6 +89,6 @@ export function confidenceFor(u: UnitFeature): Confidence {
   const l = u.properties.lst;
   if (!l) return { level: 'low', reason: 'No satellite statistics available for this unit.' };
   if (l.coverage >= 0.9 && l.nPixels >= 12 && l.meanComposites >= 20) return { level: 'high', reason: `${l.nPixels} satellite pixels, ${Math.round(l.coverage * 100)}% of area observed, ~${Math.round(l.meanComposites)} clear composites per pixel.` };
-  if (l.coverage >= 0.7 && l.nPixels >= 5) return { level: 'medium', reason: `${l.nPixels} satellite pixels and ${Math.round(l.coverage * 100)}% area coverage — a small footprint for 1 km imagery, so edge pixels add noise.` };
-  return { level: 'low', reason: `Only ${l.nPixels} satellite pixels / ${Math.round(l.coverage * 100)}% coverage — treat the numbers as indicative.` };
+  if (l.coverage >= 0.7 && l.nPixels >= 5) return { level: 'medium', reason: `${l.nPixels} satellite pixels and ${Math.round(l.coverage * 100)}% area coverage, a small footprint for 1 km imagery, so edge pixels add noise.` };
+  return { level: 'low', reason: `Only ${l.nPixels} satellite pixels / ${Math.round(l.coverage * 100)}% coverage, treat the numbers as indicative.` };
 }

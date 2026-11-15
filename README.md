@@ -1,4 +1,4 @@
-# TerraWatch AI — Karachi heat & clean-air intelligence
+# KarachAir — Karachi heat & clean-air intelligence
 
 Interactive climate-intelligence platform for Karachi's 24 administrative units. It ranks neighbourhoods by extreme-heat risk, shows live air quality, and connects student volunteers with community-service missions that an organization verifies and certifies. The heat and air analysis is built on **open data fetched by a reproducible pipeline**; the volunteer and organization features use an optional shared database.
 
@@ -45,8 +45,8 @@ Data lives in Supabase behind token-checked Postgres functions; the tables are c
 
 ## Volunteer hub
 
-1. **Chat guide ("Hawa")** — a friendly assistant that asks a few questions (nickname, area, interests, indoor/outdoor, time per task) and suggests example volunteering tasks to accept or decline. Type or talk (browser speech, optional hands-free mode), in 18 languages. After a student accepts a task it asks whether they want more choices, and stops when they say they're done.
-2. **Find a mission** — filter by neighbourhood, indoor/outdoor, time available and focus (clean air or heat), then accept or skip the missions offered. Each mission's trigger comes from that neighbourhood's real data (live PM2.5, green space, heat risk).
+1. **Chat guide ("Hawa")** — a friendly assistant that asks a few questions (area, interests, indoor/outdoor; every example task is 2 hours) and suggests volunteering tasks generated from live data to accept or decline. Type or talk (browser speech, optional hands-free mode), in 18 languages. After a student accepts a task it asks whether they want more choices, and stops when they say they're done.
+2. **Find a mission** — filter by neighbourhood, indoor/outdoor and focus (clean air or heat), then accept or skip the missions offered. Every mission is 2 hours and is generated from the data: heat-risk ranking, live air quality, live feels-like temperature, green space and field-log coverage (`src/lib/needs.ts`). Nothing is preset, and the places with the worst conditions come first. The Notifications tab also lists the highest-need places. Each mission's trigger comes from that neighbourhood's real data (live PM2.5, green space, heat risk).
 3. **My record** — accepted missions with their status, verified hours, and a **Download PDF** certificate once the organization has verified the work.
 
 Volunteers never submit or see the proof of work.

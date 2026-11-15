@@ -12,8 +12,8 @@ import { tierFor } from './colors';
 
 export interface ScenarioInput {
   warming: number;       // °C of additional background warming (what-if, not a forecast)
-  dNdvi: number;         // NDVI added by greening (0 – 0.25)
-  coolShare: number;     // 0–1 share of the unit's surface treated with cool roofs / reflective pavement
+  dNdvi: number;         // NDVI added by greening (0 to 0.25)
+  coolShare: number;     // 0 to 1 share of the unit's surface treated with cool roofs / reflective pavement
   coolEffect: number;    // °C surface cooling achieved on treated surface (assumption)
 }
 export const NO_CHANGE: ScenarioInput = { warming: 0, dNdvi: 0, coolShare: 0, coolEffect: 2 };
