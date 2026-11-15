@@ -47,9 +47,9 @@ export function build({ boundaries, pop, osm, climate, modis }) {
 
   const sources = [
     ...(boundaries ? [{ id: 'boundaries', name: 'Administrative boundaries', provider: 'geoBoundaries gbOpen (PBS 2017 census boundaries)', license: boundaries.meta.license, url: boundaries.meta.url, limits: 'Pre-2022 reorganisation: 18 towns + 6 cantonments. Boundaries are simplified.' }] : []),
-    ...(modis ? modis.meta.map((s, i) => ({ id: i === 0 ? 'lst' : 'ndvi', name: s.source, provider: s.via, license: s.license, url: s.url, detail: s.detail.replace('2020–2026', seasonLabel(modis.city.seasons)), limits: i === 0 ? '8-day clear-sky composites at 1 km; cloudy pixels excluded; surface (skin) temperature, not air temperature.' : '250 m vegetation greenness; arid-zone values are low everywhere, so compare units relatively.' })) : []),
+    ...(modis ? modis.meta.map((s, i) => ({ id: i === 0 ? 'lst' : 'ndvi', name: s.source, provider: s.via, license: s.license, url: s.url, detail: s.detail.replace(/\d{4}\s*[–-]\s*\d{4}/, seasonLabel(modis.city.seasons)), limits: i === 0 ? '8-day clear-sky composites at 1 km; cloudy pixels excluded; surface (skin) temperature, not air temperature.' : '250 m vegetation greenness; arid-zone values are low everywhere, so compare units relatively.' })) : []),
     ...(pop ? [{ id: 'population', name: pop.meta.dataset, provider: pop.meta.source, license: pop.meta.license, url: pop.meta.url, limits: 'Modelled 2020 estimate on a ~1 km grid, not a census count.' }] : []),
-    ...(osm ? [{ id: 'osm', name: 'OpenStreetMap features (health facilities, drinking water, green space)', provider: osm.meta.source, license: osm.meta.license, url: osm.meta.url, limits: osm.meta.note }] : []),
+    ...(osm ? [{ id: 'osm', name: 'OpenStreetMap features (health facilities and green space)', provider: osm.meta.source, license: osm.meta.license, url: osm.meta.url, limits: osm.meta.note }] : []),
     ...(climate ? [{ id: 'climate', name: 'ERA5-Land reanalysis — daily air temperature', provider: climate.meta.source, license: climate.meta.license, url: climate.meta.url, limits: climate.meta.resolution }] : []),
   ];
 

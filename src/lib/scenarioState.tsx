@@ -8,7 +8,7 @@ const C = createContext<Ctx | null>(null);
 export const useScenario = () => { const c = useContext(C); if (!c) throw new Error('useScenario outside ScenarioProvider'); return c; };
 
 export function ScenarioProvider({ children }: { children: ReactNode }) {
-  const [s, setS] = useState<ScenarioInput>({ ...NO_CHANGE, dNdvi: 0.08, coolShare: 0.2, coolEffect: 2 });
+  const [s, setS] = useState<ScenarioInput>({ ...NO_CHANGE }); // starts untouched, so the Report only includes a scenario once one has been set
   const [target, setTarget] = useState<Target>('unit');
   const [unitId, setUnitId] = useState<string | null>(null);
   const value = useMemo(() => ({ s, setS, target, setTarget, unitId, setUnitId, touched: s.warming !== 0 || s.dNdvi !== 0 || s.coolShare !== 0 }), [s, target, unitId]);

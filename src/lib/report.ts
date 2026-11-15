@@ -161,7 +161,7 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
       out.push(`<h3>7-day maximum temperature, highest-risk neighbourhoods (live forecast)</h3>${lineSvg(topUnits.map((u) => ({ name: u.properties.short, pts: lw.byUnit[u.properties.id]?.daily.map((d) => d.tmax) ?? [] })), dates, '°C', 'Seven-day maximum temperature forecast for the five highest-risk neighbourhoods')}`);
     } else out.push('<div class="note warn">Live weather could not be loaded, so the forecast chart is not shown.</div>');
     if (c.climate?.years?.length) {
-      const ys = c.climate.years.filter((y) => y.hotSeasonTmax != null);
+      const ys = c.climate.years.filter((y) => y.complete && y.hotSeasonTmax != null); // a part-year would plot as a false spike
       out.push(`<h3>Hot-season maximum temperature by year (ERA5-Land)</h3>${lineSvg([{ name: 'Hot-season mean daily max', pts: ys.map((y) => y.hotSeasonTmax) }, { name: 'Annual mean daily max', pts: ys.map((y) => y.meanTmax) }], ys.map((y) => String(y.year)), '°C', 'Hot-season and annual maximum temperature by year')}`);
     }
     const yrs = [...new Set(topUnits.flatMap((u) => Object.keys(u.properties.lst?.byYear ?? {})))].sort();
@@ -217,7 +217,7 @@ export function buildReportHtml(o: ReportOptions, c: ReportContext): string {
           const rankAfter = 1 + units.filter((x) => x.properties.id !== u.properties.id && scores.get(x.properties.id)!.index > r.next.score.index).length;
           const tb = r.base.score.tier, ta = tierFor(r.next.score.index);
           out.push(`<div class="kpis"><div class="kpi" style="--c:#e8602c"><b>${fmtTemp(r.base.lstDay)} → ${fmtTemp(r.next.lstDay)}</b><span>afternoon surface temp (${fmtDelta(r.dLstDay, 2)}°C)</span></div>
-          <div class="kpi" style="--c:#d62f4b"><b>${r.base.score.index.toFixed(0)} → ${Math.min(100, r.next.score.index).toFixed(0)}</b><span>heat risk index (${fmtDelta(Math.min(100, r.next.score.index) - r.base.score.index, 1)})</span></div>
+          <div class="kpi" style="--c:#d62f4b"><b>${r.base.score.index.toFixed(0)} → ${r.next.score.index.toFixed(0)}</b><span>heat risk index (${fmtDelta(r.next.score.index - r.base.score.index, 1)})</span></div>
           <div class="kpi" style="--c:${ta.color}"><b>${esc(tb.label)} → ${esc(ta.label)}</b><span>risk tier</span></div>
           <div class="kpi" style="--c:#6b58c9"><b>#${scores.get(u.properties.id)!.rank} → #${rankAfter}</b><span>rank among ${units.length}</span></div></div>`);
         }

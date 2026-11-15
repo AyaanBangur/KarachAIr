@@ -35,7 +35,7 @@ export function ScenarioLab({ initialUnit }: { initialUnit: string | null }) {
 
   // Compare canned interventions for the current target.
   const compare = useMemo(() => {
-    const rows = PRESETS.slice(1).map((p) => ({ ...p, s: { ...p.s, coolEffect: s.coolEffect || p.s.coolEffect } }));
+    const rows = PRESETS.slice(1).map((p) => ({ ...p, s: { ...p.s, coolEffect: s.coolEffect ?? p.s.coolEffect } }));
     rows.push({ id: 'custom', label: 'Your scenario', s });
     return rows.map((p) => {
       const pr = runPortfolio(data.units, targetIds, baseline, weights, p.s, reg);
@@ -87,7 +87,7 @@ export function ScenarioLab({ initialUnit }: { initialUnit: string | null }) {
             <div className="card-title"><div><h3>{unit.properties.name}</h3><p>{isBase ? 'Move a slider to see the effect.' : 'Outcome under your scenario'}</p></div></div>
             <div className="outcome-grid">
               <Outcome label="Afternoon surface temp" from={fmtTemp(single.base.lstDay)} to={fmtTemp(single.next.lstDay)} delta={`${fmtDelta(single.dLstDay)}°C`} good={single.dLstDay <= 0} />
-              <Outcome label="Heat risk index" from={single.base.score.index.toFixed(0)} to={Math.min(100, single.next.score.index).toFixed(0)} delta={fmtDelta(single.dIndex, 1)} good={single.dIndex <= 0} />
+              <Outcome label="Heat risk index" from={single.base.score.index.toFixed(0)} to={single.next.score.index.toFixed(0)} delta={fmtDelta(single.dIndex, 1)} good={single.dIndex <= 0} />
               <Outcome label="Risk tier" from={tierBefore!.label} to={tierAfter!.label} delta={tierBefore!.key === tierAfter!.key ? 'no change' : TIERS.findIndex((t) => t.key === tierAfter!.key) < TIERS.findIndex((t) => t.key === tierBefore!.key) ? 'improves' : 'worsens'} good={TIERS.findIndex((t) => t.key === tierAfter!.key) <= TIERS.findIndex((t) => t.key === tierBefore!.key)} color={tierAfter!.color} />
               <Outcome label="Rank among 24 units" from={ordinal(scores.get(unitId)!.rank)} to={ordinal(rankAfter!)} delta={rankAfter === scores.get(unitId)!.rank ? 'no change' : rankAfter! > scores.get(unitId)!.rank ? 'less risky' : 'riskier'} good={rankAfter! >= scores.get(unitId)!.rank} />
             </div>

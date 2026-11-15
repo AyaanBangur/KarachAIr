@@ -3,11 +3,11 @@ import type { Proof } from './service';
 
 export interface CertData {
   /** student */ n: string; /** school */ s: string; /** mission title */ t: string; /** verified hours */ h: number;
-  /** neighbourhood */ u: string; /** signer name */ g: string; /** signer role */ r: string; /** issued date YYYY-MM-DD */ d: string; /** organization */ o: string;
+  /** neighbourhood */ u: string; /** signer name */ g: string; /** signer role */ r: string; /** issued date YYYY-MM-DD */ d: string; /** organization */ o: string; /** the organization's description of the student's work */ p: string;
 }
 
 export function makeCertData(p: Proof, unitName: string, org: string): CertData {
-  return { n: p.student, s: p.school, t: p.title, h: p.verifiedHours, u: unitName, g: p.signer?.name ?? '', r: p.signer?.role ?? '', d: p.signer?.date ?? '', o: org };
+  return { n: p.student, s: p.school, t: p.title, h: p.verifiedHours, u: unitName, g: p.signer?.name ?? '', r: p.signer?.role ?? '', d: p.signer?.date ?? '', o: org, p: p.signer?.proof ?? '' };
 }
 
 /** Make the PDF in the browser and save it as a file. The PDF code is loaded only when someone clicks Download. */

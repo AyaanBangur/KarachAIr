@@ -44,7 +44,7 @@ const writeJson = (k: string, v: unknown): boolean => { try { localStorage.setIt
 export type SyncState = 'local' | 'connecting' | 'online' | 'offline';
 interface Ctx {
   /** Field observations only. Proof-of-work submissions are kept separately in `proofs`. */
-  logs: VolunteerLog[]; proofs: VolunteerLog[]; mine: Set<string>; missions: Mission[];
+  logs: VolunteerLog[]; proofs: VolunteerLog[]; /** every record: field logs and accepted missions together */ allLogs: VolunteerLog[]; mine: Set<string>; missions: Mission[];
   add: (l: NewLog) => VolunteerLog; remove: (id: string) => void;
   review: (id: string, status: Status, note?: string) => Promise<void>;
   createMission: (m: { title: string; details: string; unitId: string | null; kind: LogKind | null; target: number }) => Promise<string | null>;
@@ -75,10 +75,15 @@ export function LogsProvider({ children }: { children: ReactNode }) {
   useEffect(() => { if (!shared && session && !writeJson(demoKey, local)) setPersisted(false); }, [local, shared, session]);
 
   const pendRef = useRef(pending); pendRef.current = pending;
+  const inFlight = useRef(new Set<string>()); // ids already being uploaded, so a log is never sent twice
   const refresh = useCallback(async () => {
     if (!shared) return;
     try {
-      for (const l of pendRef.current) { await rpc('tw_submit_log', { p_token: token, p: toPayload(l) }); setPending((x) => x.filter((y) => y.id !== l.id)); }
+      for (const l of pendRef.current) {
+        if (inFlight.current.has(l.id)) continue;
+        inFlight.current.add(l.id);
+        try { await rpc('tw_submit_log', { p_token: token, p: toPayload(l) }); setPending((x) => x.filter((y) => y.id !== l.id)); } finally { inFlight.current.delete(l.id); }
+      }
       const rows = await rpc<Row[]>('tw_list_logs', { p_token: token });
       setRemote(rows.map(fromRow)); setRemoteMine(new Set(rows.filter((r) => r.mine).map((r) => r.id)));
       const ms = await rpc<{ id: string; title: string; details: string; unit_id: string | null; kind: LogKind | null; target: number; active: boolean; created_at: string; done: number }[]>('tw_list_missions', { p_token: token });
@@ -99,7 +104,8 @@ export function LogsProvider({ children }: { children: ReactNode }) {
     const log: VolunteerLog = { ...l, lat: round3(l.lat), lon: round3(l.lon), id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`, createdAt: new Date().toISOString(), status: 'pending', reviewNote: '' };
     if (!shared) { setLocal((x) => [log, ...x]); return log; }
     setPending((x) => [log, ...x]);
-    void rpc('tw_submit_log', { p_token: token, p: toPayload(log) }).then(() => { setPending((x) => x.filter((y) => y.id !== log.id)); void refresh(); }).catch((e) => { if (e instanceof ApiError && e.expired) logout(); else setSync('offline'); });
+    inFlight.current.add(log.id);
+    void rpc('tw_submit_log', { p_token: token, p: toPayload(log) }).then(() => { setPending((x) => x.filter((y) => y.id !== log.id)); inFlight.current.delete(log.id); void refresh(); }).catch((e) => { inFlight.current.delete(log.id); if (e instanceof ApiError && e.expired) logout(); else setSync('offline'); });
     return log;
   }, [shared, token, refresh, logout]);
 
@@ -131,7 +137,7 @@ export function LogsProvider({ children }: { children: ReactNode }) {
   const logs = useMemo(() => allLogs.filter((l) => !isProof(l)), [allLogs]);
   const proofs = useMemo(() => allLogs.filter(isProof), [allLogs]);
   const mine = useMemo(() => (shared ? new Set([...remoteMine, ...pending.map((p) => p.id)]) : new Set(local.map((l) => l.id))), [shared, remoteMine, pending, local]);
-  const value = useMemo<Ctx>(() => ({ logs, proofs, mine, missions, add, remove, review, createMission, setMissionActive, sync, unsynced: pending.length, refresh: () => void refresh(), persisted, shared }), [logs, proofs, mine, missions, add, remove, review, createMission, setMissionActive, sync, pending.length, refresh, persisted, shared]);
+  const value = useMemo<Ctx>(() => ({ logs, proofs, allLogs, mine, missions, add, remove, review, createMission, setMissionActive, sync, unsynced: pending.length, refresh: () => void refresh(), persisted, shared }), [logs, proofs, allLogs, mine, missions, add, remove, review, createMission, setMissionActive, sync, pending.length, refresh, persisted, shared]);
   return <LogsCtx.Provider value={value}>{children}</LogsCtx.Provider>;
 }
 
@@ -141,4 +147,11 @@ export function logsToCsv(logs: VolunteerLog[], units: UnitFeature[]): string {
   const name = (id: string | null) => units.find((u) => u.properties.id === id)?.properties.name ?? '';
   const head = ['id', 'observed_at', 'saved_at', 'volunteer', 'unit', 'place', 'latitude', 'longitude', 'type', 'temperature_c', 'temperature_measure', 'shade', 'tags', 'notes', 'status'];
   return [head.join(','), ...logs.map((l) => [l.id, l.observedAt, l.createdAt, l.volunteer, name(l.unitId), l.place, l.lat, l.lon, kindOf(l.kind).label, l.tempC, l.measure, l.shade, l.tags.join('; '), l.notes, l.status].map(q).join(','))].join('\n');
+}
+
+/** A record's map position: its own GPS point if it has one, otherwise the centre of its neighbourhood. */
+export function logPosition(l: Pick<VolunteerLog, 'lat' | 'lon' | 'unitId'>, units: UnitFeature[]): [number, number] | null {
+  if (l.lat != null && l.lon != null) return [l.lat, l.lon];
+  const u = l.unitId ? units.find((x) => x.properties.id === l.unitId) : null;
+  return u ? [u.properties.centroid[1], u.properties.centroid[0]] : null;
 }

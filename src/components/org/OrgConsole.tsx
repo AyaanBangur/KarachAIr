@@ -45,10 +45,12 @@ export function OrgConsole() {
 // ---------------------------------------------------------------- team: join code + roster
 function Overview() {
   const { session } = useAuth();
-  const { logs, proofs } = useLogs();
+  const { allLogs: logs, proofs } = useLogs();
   const { data } = useTerra();
   const [members, setMembers] = useState<Member[] | null>(null);
   const [copied, setCopied] = useState(false);
+  const [joinCode, setJoinCode] = useState<string | null>(null);
+  useEffect(() => { rpc<{ code?: string }>('tw_org_join_code', { p_token: session!.token }).then((r) => setJoinCode(r.code ?? null)).catch(() => setJoinCode(null)); }, [session]);
   const load = useCallback(() => { rpc<Member[]>('tw_list_members', { p_token: session!.token }).then(setMembers).catch(() => setMembers([])); }, [session]);
   useEffect(load, [load, logs.length]);
   // The tiles count volunteer missions (accept -> verify), which is what the app tracks now.
@@ -64,10 +66,12 @@ function Overview() {
       <section className="card card-pad card-glow code-card">
         <div className="layer-label">How volunteers join</div>
         <div className="code-big mono" style={{ letterSpacing: '-0.02em', fontSize: 'clamp(22px,3vw,32px)' }}>{session?.org?.name}</div>
+        <div className="layer-label" style={{ marginTop: 8 }}>Invite code for volunteers</div>
+        <div className="code-big mono" style={{ letterSpacing: '0.12em', fontSize: 'clamp(24px,3.4vw,36px)' }} aria-label="Invite code">{joinCode ?? '…'}</div>
         <div className="chip-row wrap">
           <button className="btn btn-primary btn-sm" onClick={copy}>{copied ? <><Check />Copied</> : 'Copy sign-in link'}</button>
         </div>
-        <p className="muted" style={{ fontSize: 12.5 }}>Send volunteers the link. They create an account (name, email, password), and when prompted choose <b>{session?.org?.name}</b> from the organization list. Anyone with an account can join any listed organization, so remove people who shouldn&rsquo;t be on your roster.</p>
+        <p className="muted" style={{ fontSize: 12.5 }}>Send volunteers the link. They create an account (name, email, password), choose <b>{session?.org?.name}</b> from the organization list, and enter the invite code above. Only people you give the code to can join. Remove anyone who shouldn&rsquo;t be on your roster.</p>
       </section>
 
       <div className="org-kpis">
@@ -135,7 +139,7 @@ function PostMission() {
 // ---------------------------------------------------------------- coverage gaps
 function Coverage() {
   const { data, scores } = useTerra();
-  const { logs } = useLogs();
+  const { allLogs: logs } = useLogs();
   const paths = useMemo(() => miniMapPaths(data.units), [data.units]);
   const rows = useMemo(() => [...data.units].sort((a, b) => scores.get(a.properties.id)!.rank - scores.get(b.properties.id)!.rank).map((u) => {
     const p = u.properties, s = scores.get(p.id)!, ls = logs.filter((l) => l.unitId === p.id && l.status !== 'flagged');

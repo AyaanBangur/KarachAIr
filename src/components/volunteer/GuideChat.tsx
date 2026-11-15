@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cleanTranscript } from '../../lib/whisperFlow';
+import { loadChat, saveChat } from '../../lib/chatStore';
 import { BOT_NAME, areaOf, onDecision, respond, startChat, typeOf, type AirInfo, type BotMsg, type GCtx, type GState, type Task, type TaskView } from '../../lib/guide';
 import { LANGS, langOf, translate } from '../../lib/translate';
 import { airBand, classifyCause } from '../../lib/air';
@@ -16,7 +17,7 @@ const recCtor = (): RecCtor | null => { const w = window as unknown as { SpeechR
 const hasTTS = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
 const PREFERRED = ['sonia', 'jenny', 'aria', 'neerja', 'ryan', 'guy'];
 /** Hindi voices that are male (Microsoft Hemant / Madhur, etc.). "female" is excluded explicitly. */
-const MALE_HI = /(hemant|madhur|prabhat|rishi|ravi)|(?<!fe)male/i;
+const MALE_HI = /\b(hemant|madhur|prabhat|rishi|ravi|asad)\b|(?<!fe)male/i; // male Hindi and Urdu voices
 
 const spoken = (t: string) => t.replace(/µg\/m³/g, ' micrograms per cubic metre').replace(/PM2\.5/g, 'P M 2.5').replace(/[\u{1F300}-\u{1FAFF}☀-➿️]/gu, '').replace(/["“”]/g, '').trim();
 /** Speak sentence by sentence with a little natural variation; always resolves (safety timeout). */
@@ -32,7 +33,7 @@ function speak(text: string, voice: SpeechSynthesisVoice | null, rate: number, l
     parts.forEach((p, i) => {
       const u = new SpeechSynthesisUtterance(p.trim());
       if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = lang;
-      if (lang.startsWith('hi')) {
+      if (lang.startsWith('hi') || lang.startsWith('ur')) {
         // Hindi: slower, steady and a little lower, with no random variation, so every word is easy to follow
         u.rate = rate * 0.85; u.pitch = voice && MALE_HI.test(voice.name) ? 0.95 : 0.8; u.volume = 1;
       } else { u.rate = rate * (0.97 + Math.random() * 0.06); u.pitch = 1 + (Math.random() * 0.06 - 0.02); }
@@ -47,10 +48,12 @@ type Item = { id: number; role: 'bot' | 'me'; text: string; chips?: { label: str
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
 
 /** The volunteer guide chat: rule-based, scripted, optional voice, microphone and translation. */
-export function GuideChat({ air, weather, name, tasks, onAccept }: { air: AirState; weather: LiveWeather | null; /** first name of the account holder */ name: string; /** tasks generated from live data and the report */ tasks: Task[]; onAccept: (task: Task, nick: string) => void }) {
-  const [items, setItems] = useState<Item[]>([]);
+export function GuideChat({ air, weather, name, tasks, userKey, active = true, onAccept }: { /** false while another section of the hub is showing (the chat stays alive but quiet) */ active?: boolean; /** identifies the volunteer, so their chat is kept while they visit other tabs */ userKey: string; air: AirState; weather: LiveWeather | null; /** first name of the account holder */ name: string; /** tasks generated from live data and the report */ tasks: Task[]; onAccept: (task: Task, nick: string) => string | null }) {
+  // a chat the volunteer already started (before they went to another tab) is restored instead of starting over
+  const savedChat = useRef(loadChat<Item, GState>(userKey));
+  const [items, setItems] = useState<Item[]>(() => savedChat.current?.items ?? []);
   const [typing, setTyping] = useState(false);
-  const [view, setView] = useState<GState | null>(null);
+  const [view, setView] = useState<GState | null>(() => savedChat.current?.state ?? null);
   const [input, setInput] = useState('');
   const [langCode, setLangCode] = useLocalState<string>('tw-guide-lang', 'en');
   const [voiceOn, setVoiceOn] = useLocalState<boolean>('tw-guide-voice', true);
@@ -63,7 +66,7 @@ export function GuideChat({ air, weather, name, tasks, onAccept }: { air: AirSta
   const lang = langOf(langCode);
   const supported = typeof window !== 'undefined' && !!recCtor();
 
-  const stateRef = useRef<GState | null>(null), idRef = useRef(0), queue = useRef<BotMsg[]>([]), running = useRef(false);
+  const stateRef = useRef<GState | null>(savedChat.current?.state ?? null), idRef = useRef(Math.max(0, ...(savedChat.current?.items ?? []).map((i) => i.id))), queue = useRef<BotMsg[]>([]), running = useRef(false);
   const rec = useRef<Recognizer | null>(null), silent = useRef(0), hf = useRef(false), langRef = useRef(lang), voiceRef = useRef<SpeechSynthesisVoice | null>(null), rateRef = useRef(rate), voiceOnRef = useRef(voiceOn), gen = useRef(0);
   const logRef = useRef<HTMLDivElement>(null);
   hf.current = handsFree; langRef.current = lang; rateRef.current = rate; voiceOnRef.current = voiceOn;
@@ -98,7 +101,7 @@ export function GuideChat({ air, weather, name, tasks, onAccept }: { air: AirSta
     return () => { window.speechSynthesis.onvoiceschanged = null; };
   }, []);
   const langVoices = useMemo(() => voices.filter((v) => v.lang.toLowerCase().startsWith(lang.code)).sort((a, b) => {
-    const s = (v: SpeechSynthesisVoice) => lang.code === 'hi' ? (MALE_HI.test(v.name) ? 0 : 4) + (/natural|online/i.test(v.name) ? 0 : 2) : (/natural|online/i.test(v.name) ? 0 : 2) + (PREFERRED.some((p) => v.name.toLowerCase().includes(p)) ? 0 : 1);
+    const s = (v: SpeechSynthesisVoice) => (lang.code === 'hi' || lang.code === 'ur') ? (MALE_HI.test(v.name) ? 0 : 4) + (/natural|online/i.test(v.name) ? 0 : 2) : (/natural|online/i.test(v.name) ? 0 : 2) + (PREFERRED.some((p) => v.name.toLowerCase().includes(p)) ? 0 : 1);
     return s(a) - s(b) || a.name.localeCompare(b.name);
   }), [voices, lang.code]);
   const voice = langVoices.find((v) => v.name === voiceName) ?? langVoices[0] ?? null;
@@ -165,8 +168,18 @@ export function GuideChat({ air, weather, name, tasks, onAccept }: { air: AirSta
   // begin() fully resets the chat, so a development-mode double mount simply starts it again cleanly.
   // The opening mentions today's air, so wait until the live air data has loaded (or failed) before starting.
   const airReady = air.status !== 'loading';
-  useEffect(() => { if (!airReady) return; begin(); return () => { gen.current++; stopSpeech(); stopMic(); }; }, [airReady]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' }); }, [items, typing]);
+  useEffect(() => { if (!airReady) return; if (!savedChat.current) begin(); return () => { gen.current++; stopSpeech(); stopMic(); }; }, [airReady]); // eslint-disable-line react-hooks/exhaustive-deps
+  // save the chat after every change, and when leaving the tab also keep any replies that were still being typed out
+  const itemsRef = useRef(items); itemsRef.current = items;
+  useEffect(() => { if (stateRef.current) saveChat(userKey, { items, state: stateRef.current }); }, [items, view, userKey]);
+  useEffect(() => () => {
+    if (!stateRef.current) return;
+    const pending: Item[] = queue.current.map((m) => ({ id: ++idRef.current, role: 'bot', text: m.text, chips: m.chips?.map((c) => ({ label: c, value: c })), tasks: m.tasks }));
+    saveChat(userKey, { items: [...itemsRef.current, ...pending], state: stateRef.current });
+  }, [userKey]);
+  useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: active ? 'smooth' : 'auto' }); }, [items, typing, active]);
+  // while another section is showing, stop talking and listening (the conversation itself is kept)
+  useEffect(() => { if (!active) { stopSpeech(); stopMic(); setHandsFree(false); hf.current = false; } }, [active, stopSpeech, stopMic]);
 
   // ---- sending
   const send = useCallback(async (text: string, english?: string) => {
@@ -189,9 +202,11 @@ export function GuideChat({ air, weather, name, tasks, onAccept }: { air: AirSta
     const st = stateRef.current;
     if (!st || st.decisions[task.id]) return;
     stopSpeech(); stopMic(); queue.current = []; gen.current++; running.current = false;
+    // an accept that is not allowed (missing school, hazardous air, no adult) is refused before it is recorded
+    if (d === 'accept') { const refused = onAccept(task, st.profile.nick ?? 'Volunteer'); if (refused) { note(refused); return; } }
     const out = onDecision(st, task.id, d, ctxRef.current);
     stateRef.current = out.state; setView(out.state);
-    if (d === 'accept') { onAccept(task, st.profile.nick ?? 'Volunteer'); note(`Accepted: ${task.title}. It is pending until an adult confirms.`); }
+    if (d === 'accept') note(`Accepted: ${task.title}. It is pending until an adult confirms.`);
     enqueue(out.msgs);
   };
 
@@ -249,7 +264,7 @@ export function GuideChat({ air, weather, name, tasks, onAccept }: { air: AirSta
         <section className="card card-pad">
           <div className="card-title"><div><h3>What I know about you</h3></div></div>
           <table className="g-table"><tbody>
-            {row('Name', p?.nick ?? 'n/a')}{row('Area', p?.area ?? 'n/a')}{row('Interests', typesLabel)}{row('Setting', p?.setting ?? 'n/a')}
+            {row('Name', p?.nick ?? 'n/a')}{row('Area', p?.area ?? 'n/a')}{row('Activity', typesLabel)}{row('Setting', p?.setting ?? 'n/a')}
             {row('Time per task', p?.hours == null ? 'n/a' : p.hours === 99 ? 'Flexible' : `${p.hours} h`)}{row('Distance', p ? `${p.radius} km` : 'n/a')}{row('Tasks accepted', String(accepted))}
           </tbody></table>
         </section>
@@ -259,7 +274,7 @@ export function GuideChat({ air, weather, name, tasks, onAccept }: { air: AirSta
           <select className="select" value={lang.code} onChange={(e) => { setLangCode(e.target.value); langRef.current = langOf(e.target.value); stopSpeech(); setVoiceName(''); }} aria-label="Language">
             {LANGS.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
           </select>
-          <div className="callout" style={{ marginTop: 10 }}><Alert /><span>Hindi uses a free translation service: your messages are sent to it. Don’t type personal details. Translation may be imperfect, and Hindi should be typed in Devanagari (हिन्दी), not Roman letters.</span></div>
+          <div className="callout" style={{ marginTop: 10 }}><Alert /><span>Urdu and Hindi use a free translation service: your messages are sent to it. Don’t type personal details. Translation may be imperfect. Type Urdu in Urdu script (اردو) and Hindi in Devanagari (हिन्दी); a few Roman Urdu words such as kachra, darakht and paani also work.</span></div>
           {noVoice && <p className="muted tiny" style={{ marginTop: 8 }}>No {lang.name} voice is installed in this browser, so replies are text only.</p>}
         </section>
 

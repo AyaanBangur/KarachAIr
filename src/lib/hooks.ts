@@ -8,7 +8,7 @@ export interface Route { page: 'dashboard' | 'login'; tab: string; unit: string 
 export function parseHash(h: string): Route {
   const [path, query = ''] = h.replace(/^#\/?/, '').split('?');
   const seg = path.split('/').filter(Boolean);
-  if (seg[0] === 'login') return { page: 'login', tab: seg[1] === 'volunteer' || seg[1] === 'organization' ? seg[1] : '', unit: null };
+  if (seg[0] === 'login') return { page: 'login', tab: seg[1] === 'volunteer' || seg[1] === 'organization' || seg[1] === 'reset' ? seg[1] : '', unit: null };
   const tab = (seg[0] === 'dashboard' ? seg[1] : seg[0]) || 'explore';
   return { page: 'dashboard', tab: (TAB_IDS as readonly string[]).includes(tab) ? tab : 'explore', unit: new URLSearchParams(query).get('unit') };
 }

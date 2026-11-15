@@ -102,13 +102,19 @@ export function draftAlert(f: AlertFacts): { en: string; ur: string } {
 export interface AuditRow { token: string; matches: string | null }
 export interface Audit { rows: AuditRow[]; ok: boolean; mentionsPm25: boolean }
 
-/** Every number in a message must equal a source value shown on screen; otherwise the draft is flagged. Parameter names (PM2.5, PM10, NO₂) are ignored. */
+/**
+ * Every READING in a message must equal a source value shown on screen; otherwise the draft is flagged. Only numbers that
+ * are readings are checked (a number with a unit such as µg/m³ or km/h, or after "AQI"), so a coordinator can add "N95",
+ * "2 PM", "children under 12" or a date without the alert being blocked. The app's own band limits (35, 150) and the WHO
+ * guideline (15) may also be quoted.
+ */
 export function auditNumbers(text: string, facts: { name: string; value: number }[]): Audit {
   const cleaned = text.replace(/PM\s?2\.5|PM\s?10|NO\s?[2₂]/gi, ' ');
-  const tokens = cleaned.match(/\d+(?:\.\d+)?/g) ?? [];
+  const known = [...facts, { name: 'Good limit', value: 35 }, { name: 'Hazardous limit', value: 150 }, { name: 'WHO guideline', value: 15 }];
+  const tokens = [...cleaned.matchAll(/(\d+(?:\.\d+)?)\s*(?:µg\/m³|μg\/m³|ug\/m3|µg|km\/h|kph)|AQI\s*:?\s*(\d+(?:\.\d+)?)/gi)].map((m) => m[1] ?? m[2]);
   const rows = tokens.map((token) => {
     const n = parseFloat(token);
-    const hit = facts.find((f) => Math.abs(f.value - n) < 0.05);
+    const hit = known.find((f) => Math.abs(f.value - n) < 0.05);
     return { token, matches: hit ? hit.name : null };
   });
   const pm = facts.find((f) => f.name === 'PM2.5');

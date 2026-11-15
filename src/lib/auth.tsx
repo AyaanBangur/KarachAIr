@@ -17,11 +17,11 @@ const save = (s: Session | null) => { try { s ? localStorage.setItem(KEY, JSON.s
 
 interface Ctx {
   session: Session | null; checking: boolean;
-  registerOrg: (name: string, pass: string) => Promise<string | null>;   // each returns an error message, or null on success
+  registerOrg: (name: string, pass: string, email: string) => Promise<string | null>;   // each returns an error message, or null on success
   loginOrg: (name: string, pass: string) => Promise<string | null>;
   signUpVolunteer: (name: string, email: string, pass: string) => Promise<string | null>;
   loginVolunteer: (email: string, pass: string) => Promise<string | null>;
-  joinOrg: (orgId: string) => Promise<string | null>;
+  joinOrg: (orgId: string, code: string) => Promise<string | null>;
   leaveOrg: () => void;
   startDemo: (role: Role) => void;
   logout: () => void;
@@ -52,13 +52,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Ctx>(() => ({
     session, checking,
-    registerOrg: (name, pass) => apply(rpc<Reply>('tw_register_org', { p_name: name, p_pass: pass })),
+    registerOrg: async (name, pass, email) => {
+      // an email is kept with the organization so a forgotten passcode can be reset by email
+      try {
+        const r = await rpc<Reply>('tw_register_org', { p_name: name, p_pass: pass });
+        if ('error' in r) return r.error;
+        await rpc('tw_set_org_email', { p_token: r.token, p_email: email }).catch(() => undefined);
+        set(r); return null;
+      } catch (e) { return e instanceof ApiError && e.status === 0 ? 'The shared database is not configured for this build.' : 'Could not reach the server. Check your connection and try again.'; }
+    },
     loginOrg: (name, pass) => apply(rpc<Reply>('tw_org_login', { p_name: name, p_pass: pass })),
     signUpVolunteer: (name, email, pass) => apply(rpc<Reply>('tw_volunteer_signup', { p_name: name, p_email: email, p_pass: pass })),
     loginVolunteer: (email, pass) => apply(rpc<Reply>('tw_volunteer_login', { p_email: email, p_pass: pass })),
-    joinOrg: async (orgId) => {
+    joinOrg: async (orgId, code) => {
       if (!session) return 'Please sign in again.';
-      try { const r = await rpc<{ error?: string; org: NonNullable<Session['org']>; member: NonNullable<Session['member']> }>('tw_join_org', { p_token: session.token, p_org: orgId }); if (r.error) return r.error; set({ ...session, org: r.org, member: r.member }); return null; }
+      try { const r = await rpc<{ error?: string; org: NonNullable<Session['org']>; member: NonNullable<Session['member']> }>('tw_join_org_code', { p_token: session.token, p_org: orgId, p_code: code }); if (r.error) return r.error; set({ ...session, org: r.org, member: r.member }); return null; }
       catch { return 'Could not reach the server. Check your connection and try again.'; }
     },
     leaveOrg: () => { if (!session) return; if (!session.demo && SHARED_ENABLED) void rpc('tw_leave_org', { p_token: session.token }).catch(() => undefined); set({ ...session, org: null, member: null }); },

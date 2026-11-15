@@ -26,7 +26,7 @@ const SECTIONS: { key: SectionKey; label: string; hint: string }[] = [
 
 export function ReportTab({ picks, air, weather }: { picks: string[]; air: LiveAir | null; weather: LiveWeather | null }) {
   const { data, scores, weights, setWeights, medians, baseline } = useTerra();
-  const { logs } = useLogs();
+  const { allLogs: logs } = useLogs();
   const { session } = useAuth();
   const sc = useScenario();
   const frame = useRef<HTMLIFrameElement>(null);

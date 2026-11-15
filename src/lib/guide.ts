@@ -19,11 +19,31 @@ export const AREAS: Area[] = [
 ];
 export interface VType { id: number; name: string; emoji: string; key: string }
 export const TYPES: VType[] = [
-  { id: 1, name: 'Waste & burning', emoji: '♻️', key: 'waste' }, { id: 2, name: 'Traffic & no-idling', emoji: '🚗', key: 'traffic' },
-  { id: 3, name: 'Trees & dust', emoji: '🌳', key: 'trees' }, { id: 4, name: 'Health & masks', emoji: '😷', key: 'health' }, { id: 5, name: 'Sensors & data', emoji: '📡', key: 'sensors' },
+  { id: 1, name: 'Clean up waste & burning', emoji: '♻️', key: 'waste' }, { id: 2, name: 'Traffic no-idling shifts', emoji: '🚗', key: 'traffic' },
+  { id: 3, name: 'Plant trees & fight dust', emoji: '🌳', key: 'trees' }, { id: 4, name: 'Health awareness & mask drives', emoji: '😷', key: 'health' }, { id: 5, name: 'Track air & heat data', emoji: '📡', key: 'sensors' },
 ];
 /** A task generated from live data and the report (see needs.ts). Nothing is preset. */
 export interface Task { id: string; type: number; title: string; area: string; lat: number; lon: number; indoor: boolean; hours: number; unitId: string; focus: 'air' | 'heat'; reason: string; need: number }
+/** Extra names people use for Karachi towns (so "Clifton", "DHA", "PECHS" or "Nazimabad" are all understood). */
+const EXTRA_ALIASES: Record<string, string[]> = {
+  'clifton-cantonment': ['clifton', 'dha', 'defence', 'defense', 'clifton cantt', 'clifton cantonment'],
+  'gulshan-e-iqbal-town': ['gulshan', 'gulshan e iqbal'], 'jamshed-town': ['jamshed', 'pechs', 'tariq road', 'jamshed road'],
+  'north-nazimabad-town': ['north nazimabad', 'nazimabad', 'n nazimabad'], 'liaquatabad-town': ['liaquatabad', 'lalukhet'],
+  'kiamari-town': ['kiamari', 'keamari'], 'bin-qasim-town': ['bin qasim', 'port qasim'], 'site-town': ['site town', 'sindh industrial'],
+  'gulberg-town': ['gulberg', 'federal b area'], 'karachi-cantonment': ['karachi cantt', 'karachi cantonment'], 'faisal-cantonment': ['faisal cantt', 'faisal cantonment'],
+  'malir-cantonment': ['malir cantt', 'malir cantonment'], 'korangi-creek-cantonment': ['korangi creek'], 'manora-cantonment': ['manora'],
+};
+const cleanName = (x: string) => x.toLowerCase().replace(/\./g, '').replace(/[^a-z\- ]/g, ' ').replace(/\s+/g, ' ').trim();
+/** Make every one of Karachi's units a place Hawa understands (the 7 curated places above plus all the others, from the map data). */
+export function registerAreas(units: { properties: { id: string; name: string; short: string; centroid: [number, number] } }[]) {
+  for (const u of units) {
+    const p = u.properties, extras = EXTRA_ALIASES[p.id] ?? [];
+    const own = AREAS.find((a) => a.unitId === p.id);
+    const names = [p.short, p.name, p.name.replace(/ (town|cantonment)$/i, ''), ...extras].map(cleanName).filter(Boolean);
+    if (own) { own.aliases = [...new Set([...own.aliases, ...names.filter((n) => !['university', 'faisal'].includes(n))])]; continue; }
+    AREAS.push({ name: p.short, lat: p.centroid[1], lon: p.centroid[0], unitId: p.id, aliases: [...new Set(names)] });
+  }
+}
 export const areaOf = (name: string | null) => AREAS.find((a) => a.name === name) ?? null;
 export const typeOf = (id: number) => TYPES.find((t) => t.id === id)!;
 
@@ -86,7 +106,9 @@ const SETTING_WORDS = ['indoor', 'indoors', 'outdoor', 'outdoors', 'inside', 'ou
 export function parseArea(t: string): string | null {
   const l = t.toLowerCase();
   const all = AREAS.flatMap((a) => a.aliases.map((al) => ({ a: a.name, al }))).sort((x, y) => y.al.length - x.al.length);
-  return all.find(({ al }) => new RegExp(`(^|[^a-z])${al.replace(/[-]/g, '[- ]')}($|[^a-z])`).test(l))?.a ?? null;
+  const hit = all.find(({ al }) => new RegExp(`(^|[^a-z])${al.replace(/[-]/g, '[- ]')}($|[^a-z])`).test(l))?.a;
+  if (hit) return hit;
+  return l.trim() === 'site' ? AREAS.find((a) => a.unitId === 'site-town')?.name ?? null : null;
 }
 /** Used only while the guide is asking for the area: "Orangey" or "Korangee" still means Orangi / Korangi. */
 export function parseAreaFuzzy(t: string): string | null {
@@ -104,8 +126,8 @@ export function parseAreaFuzzy(t: string): string | null {
   return tie ? null : best;
 }
 const TYPE_RE: [number, RegExp][] = [
-  [1, /\b(trash|waste|garbage|recycl\w*|burn\w*|litter|compost|plastic)/], [2, /\b(traffic|cars?|idl\w*|engines?|carpool\w*|bus(es)?|rickshaws?|commut\w*|drop-?off)/],
-  [3, /\b(trees?|plant\w*|sapling\w*|garden\w*|green|dust|water\w*|forest)/], [4, /\b(masks?|health|posters?|awareness|urdu|campaign\w*|social media|notices?)/],
+  [1, /\b(trash|waste|garbage|recycl\w*|burn\w*|litter|compost|plastic|kachra|kooda|dhua|dhuan)/], [2, /\b(traffic|cars?|idl\w*|engines?|carpool\w*|bus(es)?|rickshaws?|commut\w*|drop-?off)/],
+  [3, /\b(trees?|plant\w*|sapling\w*|garden\w*|green|dust|water\w*|forest|darakht|paudh\w*|paani|pani|mitti)/], [4, /\b(masks?|health|posters?|awareness|urdu|campaign\w*|social media|notices?)/],
   [5, /\b(sensors?|data|monitor\w*|science|measur\w*|logs?|research|tech\w*)/],
 ];
 export function parseTypes(t: string, existing: number[]): number[] | null {
@@ -161,8 +183,8 @@ export function buildPool(p: Profile, ctx: GCtx): { views: TaskView[]; hiddenAir
 const missing = (p: Profile): Stage | null => (!p.area ? 'area' : !p.types.length ? 'types' : !p.setting ? 'setting' : null);
 export function question(stage: Stage, ctx: GCtx): BotMsg {
   switch (stage) {
-    case 'area': return { text: pick(['Which part of Karachi are you closest to?', 'Where are you based? Pick the nearest area and I\'ll look around there.', 'Which area is closest to you?'], ctx), chips: AREAS.map((a) => a.name) };
-    case 'types': return { text: pick(['What kind of volunteering sounds good to you? You can name more than one.', 'What would you enjoy doing? Trees, traffic, health awareness, data, waste... anything catch your eye?', 'So what are you into? Planting, spreading the word, working with data, cleaning up?'], ctx), chips: [...TYPES.map((t) => t.name), 'Surprise me'] };
+    case 'area': return { text: pick(['Which part of Karachi are you closest to?', 'Where are you based? Pick the nearest area and I\'ll look around there.', 'Which area is closest to you?'], ctx), chips: AREAS.slice(0, 12).map((a) => a.name) };
+    case 'types': return { text: `What would you like to do as a volunteer? Choose the kind of activity you want to help with: ${TYPES.map((t) => t.name).join('; ')}; or Surprise me. Tap a button, or type it. You can choose more than one.`, chips: [...TYPES.map((t) => t.name), 'Surprise me'] };
     case 'setting': return { text: pick(['Would you rather be indoors, outdoors, or does it not matter?', 'Do you prefer indoor tasks, outdoor ones, or either?', 'Indoors or outdoors, which feels better to you?'], ctx), chips: ['Indoors', 'Outdoors', 'Either is fine'] };
     default: return { text: '' };
   }
@@ -311,7 +333,7 @@ export function respond(state: GState, text: string, ctx: GCtx): Out {
     {
       s.fails++;
       const q = s.stage === 'tasks' || s.stage === 'more' ? { text: 'Tap Accept or Decline on the cards, or tell me what to change, for example a different area.', chips: ['Show me more', 'Start over', 'That\'s enough'] } : question(s.stage, ctx);
-      return { state: s, msgs: [{ text: pick(['Hmm, I didn\'t quite catch that.', 'Sorry, I\'m not sure I got that.'], ctx) + (s.stage === 'area' ? ` The areas I know are ${AREAS.map((a) => a.name).join(', ')}.` : '') }, q] };
+      return { state: s, msgs: [{ text: pick(['Hmm, I didn\'t quite catch that.', 'Sorry, I\'m not sure I got that.'], ctx) + (s.stage === 'area' ? ` I know all 24 Karachi towns, for example ${AREAS.slice(0, 8).map((a) => a.name).join(', ')}. Type the name of yours.` : '') }, q] };
     }
   }
 

@@ -5,7 +5,7 @@ import { METRICS, metricColor, metricDomain, type MetricKey } from '../../lib/me
 import { CYAN, GREEN, THERMAL, VIOLET, type Ramp } from '../../lib/colors';
 import { rasterBounds, rasterRangeInUnits, renderRaster } from '../../lib/raster';
 import type { GridRaster, UnitFeature } from '../../lib/types';
-import { kindOf, useLogs } from '../../lib/logs';
+import { kindOf, logPosition, useLogs } from '../../lib/logs';
 
 export type RasterKey = 'lstDay' | 'lstNight' | 'ndvi' | 'pop';
 export type LayerSel = { kind: 'unit'; metric: MetricKey } | { kind: 'raster'; key: RasterKey };
@@ -24,7 +24,7 @@ export const rasterLegend = (r: GridRaster, key: RasterKey, units: UnitFeature[]
 export { CYAN };
 
 // Framed on the urban core; Gadap's rural north is reachable by panning.
-const VIEW = L.latLngBounds([24.76, 66.82], [25.12, 67.48]);
+const VIEW = L.latLngBounds([24.73, 66.64], [25.66, 67.6]);
 
 interface Props {
   layer: LayerSel; selectedId: string | null; onSelect: (id: string | null) => void;
@@ -33,7 +33,7 @@ interface Props {
 
 export default function MapView({ layer, selectedId, onSelect, showFacilities, showLogs = true, opacity, compareIds = [] }: Props) {
   const { data, scores } = useTerra();
-  const { logs } = useLogs();
+  const { allLogs: logs } = useLogs();
   const logLayer = useRef<L.LayerGroup | null>(null);
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
@@ -151,12 +151,13 @@ export default function MapView({ layer, selectedId, onSelect, showFacilities, s
     g.clearLayers();
     if (!showLogs) return;
     for (const l of logs) {
-      if (l.lat == null || l.lon == null) continue;
+      const pos = logPosition(l, data.units);
+      if (!pos) continue;
       const k = kindOf(l.kind);
-      L.circleMarker([l.lat, l.lon], { pane: 'facilities', radius: 7, color: '#0a110f', weight: 2, fillColor: k.color, fillOpacity: 1 })
+      L.circleMarker(pos, { pane: 'facilities', radius: 7, color: '#0a110f', weight: 2, fillColor: k.color, fillOpacity: 1 })
         .bindTooltip(`<div class="tw-tip-name">${k.label}</div><div class="tw-tip-row"><span>${l.tempC != null ? l.tempC.toFixed(1) + '°C ' + (l.measure ?? '') : 'Volunteer log'}</span></div>`, { className: 'tw-tip', direction: 'top' }).addTo(g);
     }
-  }, [logs, showLogs]);
+  }, [logs, showLogs, data.units]);
 
   // ---------------------------------------------------------------- pan to selection when it is off-screen
   useEffect(() => {

@@ -1,4 +1,4 @@
-.map-shell { position: relative; overflow: hidden; border-radius: var(--r-lg); min-height: 520px; height: 100%; padding: 0; background: #08100d; }
+.map-shell { position: relative; z-index: 0; isolation: isolate; overflow: hidden; border-radius: var(--r-lg); min-height: 520px; height: 100%; padding: 0; background: #08100d; }
 .map-canvas, .map-loading { position: absolute; inset: 0; background: #08100d; }
 .leaflet-container { background: #08100d; font-family: var(--font-sans); outline: none; }
 .leaflet-container a { color: var(--lime-300); }
@@ -25,3 +25,5 @@ path.unit-selected { filter: drop-shadow(0 0 7px rgba(184,240,74,.85)); }
 
 /* Leaflet's canvas renderer is deliberately larger than the viewport; the global `canvas { max-width:100% }` reset must not shrink it. */
 .leaflet-container canvas, .leaflet-container img.leaflet-image-layer { max-width: none !important; max-height: none !important; }
+/* Leaflet gives its panes and controls z-index values up to 1000. Keep them inside the map so they can never draw over the sticky top bar or the dashboard tabs when scrolling. */
+.leaflet-container { z-index: 0; isolation: isolate; }

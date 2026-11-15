@@ -16,6 +16,7 @@ function CertSheet({ data }: { data: CertData }) {
       <h3 className="cert-name">{data.n}{data.s ? `, ${data.s}` : ''}</h3>
       <p className="cert-text">has successfully completed <b>{fmtH(data.h)} verified volunteer hour{data.h === 1 ? '' : 's'}</b> in <b>{data.u || 'Karachi'}</b> for the climate mission:</p>
       <div className="cert-mission"><b>{data.t}</b></div>
+      {data.p && <div className="cert-note"><span>Note from {data.o || 'the organization'}</span><p>&ldquo;{data.p}&rdquo;</p></div>}
       <footer>
         <div><span className="cert-label">Authorized sign-off</span><b>{data.g ? data.g : 'n/a'}</b>{data.r && <span className="cert-issued">{data.r}</span>}<span className="cert-issued">Issued: {issued}</span><span className="cert-org">On behalf of {data.o || 'the organization'}</span></div>
       </footer>

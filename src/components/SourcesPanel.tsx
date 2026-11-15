@@ -9,7 +9,7 @@ const SOURCES: Src[] = [
   { name: 'Vegetation (NDVI)', provider: 'NASA MODIS/Terra MOD13Q1', use: 'Green-space and shade deficit', cadence: 'periodic', url: 'https://lpdaac.usgs.gov/products/mod13q1v061/', note: '250 m' },
   { name: 'Long-term air-temperature record', provider: 'ERA5-Land reanalysis (ECMWF / Copernicus), via Open-Meteo', use: 'Warming trend graphs in the report', cadence: 'periodic', url: 'https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land', note: '~9 km, 1950 to now' },
   { name: 'Population', provider: 'WorldPop 2020, UN-adjusted, 1 km', use: 'Exposure: how many people are affected', cadence: 'static', url: 'https://www.worldpop.org/', note: 'Modelled, not a census' },
-  { name: 'Health facilities, water points, green space', provider: 'OpenStreetMap contributors (Overpass API)', use: 'Vulnerability and cooling-point access', cadence: 'static', url: 'https://www.openstreetmap.org/copyright', note: 'Volunteer-mapped; coverage is uneven' },
+  { name: 'Health facilities and green space', provider: 'OpenStreetMap contributors (Overpass API)', use: 'Vulnerability: access to health care and shade', cadence: 'static', url: 'https://www.openstreetmap.org/copyright', note: 'Volunteer-mapped; coverage is uneven' },
   { name: 'Neighbourhood boundaries', provider: 'geoBoundaries (PBS 2017)', use: 'The 18 towns and 6 cantonments', cadence: 'static', url: 'https://www.geoboundaries.org/' },
 ];
 const clock = (ms?: number) => (ms ? new Date(ms).toLocaleTimeString('en-GB', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit' }) + ' PKT' : null);

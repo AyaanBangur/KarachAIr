@@ -4,7 +4,7 @@ import { METRICS, METRIC_ORDER, metricDomain, metricDomainLabels, metricGradient
 import { rampGradient, TIERS } from '../../lib/colors';
 import { Toggle, ScaleLegend, Slider } from '../ui';
 import { Layers } from '../icons';
-import { useLogs } from '../../lib/logs';
+import { logPosition, useLogs } from '../../lib/logs';
 import { RASTERS, rasterLegend, type LayerSel, type RasterKey } from '../map/MapView';
 
 const MapView = lazy(() => import('../map/MapView'));
@@ -14,8 +14,8 @@ export function MapExplorer({ selectedId, onSelect, compareIds }: { selectedId: 
   const [layer, setLayer] = useState<LayerSel>({ kind: 'unit', metric: 'hri' });
   const [facilities, setFacilities] = useState(false);
   const [showLogs, setShowLogs] = useState(true);
-  const { logs } = useLogs();
-  const mapped = logs.filter((l) => l.lat != null).length;
+  const { allLogs } = useLogs();
+  const mapped = allLogs.filter((l) => logPosition(l, data.units)).length;
   const [opacity, setOpacity] = useState(0.85);
   const [panelOpen, setPanelOpen] = useState(() => window.innerWidth > 1100);
 

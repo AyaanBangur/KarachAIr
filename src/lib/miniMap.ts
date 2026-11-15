@@ -2,7 +2,7 @@
 import type { UnitFeature } from './types';
 import { makeProjection } from './geo';
 
-const VIEW = { west: 66.82, east: 67.48, south: 24.76, north: 25.14 };
+const VIEW = { west: 66.64, east: 67.6, south: 24.73, north: 25.66 }; // covers every unit, including all of Gadap
 export interface MiniPath { id: string; d: string; cx: number; cy: number }
 
 export function miniMapPaths(units: UnitFeature[], w = 600, h = 400): MiniPath[] {

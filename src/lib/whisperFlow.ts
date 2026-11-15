@@ -25,13 +25,16 @@ export function cleanLocal(raw: string): string {
   return t || raw.trim();
 }
 
-const ENDPOINT = (import.meta.env.VITE_CLEAN_ENDPOINT as string | undefined) || '/api/clean-speech';
+// The LLM cleaning endpoint only exists on the dev server, or where VITE_CLEAN_ENDPOINT points at one. On a static site
+// there is nothing to call, so skip the request (no 404 in the network log) and use the built-in cleaner.
+const ENDPOINT = (import.meta.env.VITE_CLEAN_ENDPOINT as string | undefined) || (import.meta.env.DEV ? '/api/clean-speech' : '');
 
 /** Clean a raw transcript: LLM if available within ~1.5 s, otherwise the local rules. Never throws. */
 export async function cleanTranscript(raw: string): Promise<string> {
   const text = raw.trim();
   if (!text) return '';
   const local = cleanLocal(text);
+  if (!ENDPOINT) return local;
   try {
     const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 1500);
     const r = await fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }), signal: ctl.signal });
