@@ -13,7 +13,8 @@
     "data:static": "node scripts/pipeline/run.mjs --skip-modis",
     "test": "vitest run",
     "eval": "node scripts/run-eval.mjs",
-    "findings": "node scripts/run-eval.mjs scripts/findings.ts"
+    "findings": "node scripts/run-eval.mjs scripts/findings.ts",
+    "outlook": "node scripts/run-eval.mjs scripts/outlook.ts"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",

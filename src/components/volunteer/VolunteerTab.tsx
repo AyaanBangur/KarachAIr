@@ -9,6 +9,7 @@ import { fmtCompact } from '../../lib/format';
 import { fieldCountsFrom, generateTasks, priorityTasks, taskToMission } from '../../lib/needs';
 import { useLocalState, type AirState, type LiveWeather } from '../../lib/hooks';
 import { GuideChat } from './GuideChat';
+import { OutlookCard } from './OutlookCard';
 import { registerAreas, type Task } from '../../lib/guide';
 import { STATUS_TEXT, TIER_NAME, acceptNote, acceptTags, ago, fmtH, gateFor, matchesFilters, missionLocked, parseProof, summarize, type Filters, type Mission } from '../../lib/service';
 import { useAirFocus } from '../air/useAirFocus';
@@ -151,6 +152,7 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
         </section>
       ) : view === 'find' ? (
         <>
+          <OutlookCard />
           <SafetyGate place={place} reading={focus.reading} simulate={simulate} onSimulate={setSimulate} />
 
           <section className="card card-pad" aria-label="Mission filters">
