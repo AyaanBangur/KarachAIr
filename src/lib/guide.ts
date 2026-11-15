@@ -58,12 +58,12 @@ const HIGH = 55;
 export type Setting = 'Indoor' | 'Outdoor' | 'Any';
 export interface Profile { /** first name from the account, never asked in the chat */ nick: string | null; area: string | null; types: number[]; setting: Setting | null; hours: number | null; radius: number }
 export type Stage = 'area' | 'types' | 'setting' | 'tasks' | 'more' | 'ended';
-export interface GState { stage: Stage; profile: Profile; pool: string[]; shown: number; decisions: Record<string, 'accept' | 'decline'>; fails: number }
+export interface GState { stage: Stage; profile: Profile; pool: string[]; shown: number; decisions: Record<string, 'accept' | 'decline'>; fails: number; /** set while Hawa waits to hear whether to continue the old chat or start a new one */ ask?: 'resume' }
 export interface AirInfo { pm25: number | null; label: string; outdoorOk: boolean; triggered: number[] }
 export interface GCtx { /** first name of the signed-in volunteer */ name?: string; /** tasks generated from live data, highest need first */ tasks: Task[]; airFor: (area: string | null) => AirInfo; today: string; rng?: () => number }
 export interface TaskView { task: Task; distKm: number; needed: boolean }
 export interface BotMsg { text: string; chips?: string[]; tasks?: TaskView[] }
-export interface Out { state: GState; msgs: BotMsg[] }
+export interface Out { state: GState; msgs: BotMsg[]; /** true when a brand new conversation was started, so the screen clears the old messages */ reset?: boolean }
 
 export const freshState = (nick: string | null = null): GState => ({ stage: 'area', profile: { nick, area: null, types: [], setting: null, hours: DEFAULT_HOURS, radius: 15 }, pool: [], shown: 0, decisions: {}, fails: 0 });
 const pick = <T,>(a: T[], ctx: GCtx): T => a[Math.floor((ctx.rng ?? Math.random)() * a.length)];
@@ -126,8 +126,8 @@ export function parseAreaFuzzy(t: string): string | null {
   return tie ? null : best;
 }
 const TYPE_RE: [number, RegExp][] = [
-  [1, /\b(trash|waste|garbage|recycl\w*|burn\w*|litter|compost|plastic|kachra|kooda|dhua|dhuan)/], [2, /\b(traffic|cars?|idl\w*|engines?|carpool\w*|bus(es)?|rickshaws?|commut\w*|drop-?off)/],
-  [3, /\b(trees?|plant\w*|sapling\w*|garden\w*|green|dust|water\w*|forest|darakht|paudh\w*|paani|pani|mitti)/], [4, /\b(masks?|health|posters?|awareness|urdu|campaign\w*|social media|notices?)/],
+  [1, /\b(trash|waste|garbage|recycl\w*|burn\w*|litter|compost|plastic)/], [2, /\b(traffic|cars?|idl\w*|engines?|carpool\w*|bus(es)?|rickshaws?|commut\w*|drop-?off)/],
+  [3, /\b(trees?|plant\w*|sapling\w*|garden\w*|green|dust|water\w*|forest)/], [4, /\b(masks?|health|posters?|awareness|urdu|campaign\w*|social media|notices?)/],
   [5, /\b(sensors?|data|monitor\w*|science|measur\w*|logs?|research|tech\w*)/],
 ];
 export function parseTypes(t: string, existing: number[]): number[] | null {
@@ -241,7 +241,7 @@ export function onDecision(state: GState, id: string, decision: 'accept' | 'decl
   const acc = Object.values(s.decisions).filter((d) => d === 'accept').length;
   const msgs: BotMsg[] = [];
   if (decision === 'accept') {
-    msgs.push({ text: `Wonderful, I've noted you down for "${t.title}". It's pending until an adult confirms.` });
+    msgs.push({ text: `Wonderful, I've noted you down for "${t.title}". It's pending until an adult confirms. Open the location on Google Maps from the task card above.` });
     if (!undecided) msgs.push({ text: `That's all of them! You accepted ${acc}. Your coordinator can see this in their verification queue. Thank you for helping Karachi breathe a bit easier.` });
     msgs.push(MORE_Q); s.stage = 'more';
   } else {
@@ -287,6 +287,30 @@ function ending(s: GState, ctx: GCtx): Out {
 export function respond(state: GState, text: string, ctx: GCtx): Out {
   const raw = text.trim(); const l = raw.toLowerCase();
   if (!raw) return { state, msgs: [] };
+
+  const hasProgress = (g: GState) => !!(g.profile.area || g.profile.types.length || g.profile.setting || Object.keys(g.decisions).length);
+  const RESUME_Q: BotMsg = { text: 'Welcome back! Would you like to continue our old conversation where we left off, or start a new one?', chips: ['Continue where we left off', 'Start a new conversation'] };
+
+  // Hawa asked "continue or start new?" and is waiting for the answer
+  if (state.ask === 'resume') {
+    if (STRONG_STOP.test(l)) return ending({ ...state, ask: undefined }, ctx);
+    if (/\b(new|fresh|start over|restart|reset|begin again)\b/.test(l)) {
+      const f = freshState(state.profile.nick);
+      return { state: f, reset: true, msgs: [{ text: 'No problem, a fresh start!' }, question('area', ctx)] };
+    }
+    if (/\b(continue|resume|old|left off|same|carry on|keep going|yes|yeah|yep|sure|ok|okay)\b/.test(l)) {
+      const s = clone(state); s.ask = undefined; s.stage = state.stage === 'ended' ? (missing(s.profile) ?? 'more') : state.stage;
+      const back: BotMsg = s.stage === 'more' ? MORE_Q : s.stage === 'tasks' ? { text: 'Tap Accept or Decline on the task cards above, or tell me what to change, for example a different area.', chips: ['Show me more', 'Start over', 'That\'s enough'] } : question(s.stage, ctx);
+      return { state: s, msgs: [{ text: `Great${s.profile.nick ? `, ${s.profile.nick}` : ''}, let's pick up where we left off.` }, back] };
+    }
+    return { state, msgs: [{ text: 'Sorry, I didn\'t catch that.' }, RESUME_Q] };
+  }
+
+  // saying hi again: say hi back, and if there is an earlier conversation, ask whether to continue it or start a new one
+  if (isGreeting(l) && hasProgress(state)) {
+    const s = clone(state); s.ask = 'resume';
+    return { state: s, msgs: [{ text: pick([`Hi${state.profile.nick ? ` ${state.profile.nick}` : ''}!`, 'Hello again!', 'Hey, good to see you!'], ctx) }, RESUME_Q] };
+  }
 
   // a finished conversation stays quiet unless the student clearly wants to talk again
   if (state.stage === 'ended') {

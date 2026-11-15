@@ -3,6 +3,7 @@ import { useTerra } from '../../lib/data';
 import { useAuth } from '../../lib/auth';
 import { SHARED_ENABLED, useLogs } from '../../lib/logs';
 import { toMission } from '../../lib/orgMissions';
+import { mapsDirections, mapsView } from '../../lib/maps';
 import { generateTasks, priorityTasks, taskToMission } from '../../lib/needs';
 import { useLocalState, type AirState, type LiveWeather } from '../../lib/hooks';
 import { GuideChat } from './GuideChat';
@@ -45,6 +46,7 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
   const offers = bank.filter((m) => matchesFilters(m, filters) && !skipped.includes(m.id));
   const mineProofs = useMemo(() => proofs.filter((p) => mine.has(p.id)).map(parseProof), [proofs, mine]);
   const totals = summarize(mineProofs, null);
+  const unitPos = (id: string | null) => { const u = data.units.find((x) => x.properties.id === id); return u ? { lat: u.properties.centroid[1], lon: u.properties.centroid[0] } : null; };
   const unitName = (id: string | null) => data.units.find((u) => u.properties.id === id)?.properties.name ?? 'Karachi';
   const setF = <K extends keyof Filters>(k: K, v: Filters[K]) => { setFilters({ ...filters, [k]: v }); setOpen(null); };
 
@@ -212,6 +214,7 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
                   <div className="hist-main">
                     <div className="hist-top"><b>{p.title}</b><span className={`chip status-chip ${STATUS_TEXT[p.status].cls}`}>{p.status === 'verified' ? <Check /> : p.status === 'flagged' ? <Alert /> : <Sparkle />}{STATUS_TEXT[p.status].label}</span></div>
                     <div className="chip-row wrap"><span className="chip hrs">{p.status === 'verified' ? `+${fmtH(p.verifiedHours)} hrs verified` : `${fmtH(p.hours)} hrs committed`}</span><span className="chip"><Pin />{unitName(p.unitId)}</span><span className="chip">{TIER_NAME[p.tier]}</span><span className="muted tiny">accepted {ago(p.log.createdAt)}</span></div>
+                    {(() => { const pos = unitPos(p.unitId); return pos ? <div className="chip-row wrap" style={{ marginTop: 6 }}><a className="btn btn-sm" href={mapsView(pos.lat, pos.lon)} target="_blank" rel="noopener noreferrer">📍 See where on Google Maps</a><a className="btn btn-sm btn-ghost" href={mapsDirections(pos.lat, pos.lon)} target="_blank" rel="noopener noreferrer">Get directions</a><span className="muted tiny">{unitName(p.unitId)} (the middle of the area; {org} confirms the exact meeting spot)</span></div> : null; })()}
                     {p.status === 'pending' && <p className="muted tiny">Do the mission, then {org} records the proof and verifies your hours. Your certificate appears here when that is done.</p>}
                     {p.status === 'verified' && p.signer && <p className="muted tiny">Verified by <b>{p.signer.name}</b>{p.signer.role ? ` (${p.signer.role})` : ''} on {p.signer.date}. Your certificate is ready.</p>}
                     {p.status === 'flagged' && <p className="hist-declined">{org} could not verify this mission{p.declineNote ? `: “${p.declineNote}”` : '.'}</p>}

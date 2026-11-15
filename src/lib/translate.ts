@@ -4,7 +4,7 @@
 
 export interface Lang { code: string; name: string; mic: string; rtl?: boolean }
 export const LANGS: Lang[] = [
-  { code: 'en', name: 'English', mic: 'en-US' }, { code: 'ur', name: 'Urdu (اردو)', mic: 'ur-PK', rtl: true }, { code: 'hi', name: 'Hindi (हिन्दी)', mic: 'hi-IN' },
+  { code: 'en', name: 'English', mic: 'en-US' }, { code: 'hi', name: 'Hindi (हिन्दी)', mic: 'hi-IN' },
 ];
 export const langOf = (code: string) => LANGS.find((l) => l.code === code) ?? LANGS[0];
 

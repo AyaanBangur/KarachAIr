@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cleanTranscript } from '../../lib/whisperFlow';
+import { mapsDirections, mapsView } from '../../lib/maps';
 import { loadChat, saveChat } from '../../lib/chatStore';
 import { BOT_NAME, areaOf, onDecision, respond, startChat, typeOf, type AirInfo, type BotMsg, type GCtx, type GState, type Task, type TaskView } from '../../lib/guide';
 import { LANGS, langOf, translate } from '../../lib/translate';
@@ -17,7 +18,7 @@ const recCtor = (): RecCtor | null => { const w = window as unknown as { SpeechR
 const hasTTS = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
 const PREFERRED = ['sonia', 'jenny', 'aria', 'neerja', 'ryan', 'guy'];
 /** Hindi voices that are male (Microsoft Hemant / Madhur, etc.). "female" is excluded explicitly. */
-const MALE_HI = /\b(hemant|madhur|prabhat|rishi|ravi|asad)\b|(?<!fe)male/i; // male Hindi and Urdu voices
+const MALE_HI = /\b(hemant|madhur|prabhat|rishi|ravi)\b|(?<!fe)male/i; // male Hindi voices
 
 const spoken = (t: string) => t.replace(/µg\/m³/g, ' micrograms per cubic metre').replace(/PM2\.5/g, 'P M 2.5').replace(/[\u{1F300}-\u{1FAFF}☀-➿️]/gu, '').replace(/["“”]/g, '').trim();
 /** Speak sentence by sentence with a little natural variation; always resolves (safety timeout). */
@@ -33,7 +34,7 @@ function speak(text: string, voice: SpeechSynthesisVoice | null, rate: number, l
     parts.forEach((p, i) => {
       const u = new SpeechSynthesisUtterance(p.trim());
       if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = lang;
-      if (lang.startsWith('hi') || lang.startsWith('ur')) {
+      if (lang.startsWith('hi')) {
         // Hindi: slower, steady and a little lower, with no random variation, so every word is easy to follow
         u.rate = rate * 0.85; u.pitch = voice && MALE_HI.test(voice.name) ? 0.95 : 0.8; u.volume = 1;
       } else { u.rate = rate * (0.97 + Math.random() * 0.06); u.pitch = 1 + (Math.random() * 0.06 - 0.02); }
@@ -101,7 +102,7 @@ export function GuideChat({ air, weather, name, tasks, userKey, active = true, o
     return () => { window.speechSynthesis.onvoiceschanged = null; };
   }, []);
   const langVoices = useMemo(() => voices.filter((v) => v.lang.toLowerCase().startsWith(lang.code)).sort((a, b) => {
-    const s = (v: SpeechSynthesisVoice) => (lang.code === 'hi' || lang.code === 'ur') ? (MALE_HI.test(v.name) ? 0 : 4) + (/natural|online/i.test(v.name) ? 0 : 2) : (/natural|online/i.test(v.name) ? 0 : 2) + (PREFERRED.some((p) => v.name.toLowerCase().includes(p)) ? 0 : 1);
+    const s = (v: SpeechSynthesisVoice) => lang.code === 'hi' ? (MALE_HI.test(v.name) ? 0 : 4) + (/natural|online/i.test(v.name) ? 0 : 2) : (/natural|online/i.test(v.name) ? 0 : 2) + (PREFERRED.some((p) => v.name.toLowerCase().includes(p)) ? 0 : 1);
     return s(a) - s(b) || a.name.localeCompare(b.name);
   }), [voices, lang.code]);
   const voice = langVoices.find((v) => v.name === voiceName) ?? langVoices[0] ?? null;
@@ -193,6 +194,7 @@ export function GuideChat({ air, weather, name, tasks, userKey, active = true, o
     }
     const out = respond(stateRef.current, eng, ctxRef.current);
     stateRef.current = out.state; setView(out.state);
+    if (out.reset) setItems([]); // "start a new conversation": the old messages leave the screen
     if (out.state.stage === 'ended') { setHandsFree(false); hf.current = false; }
     enqueue(out.msgs);
   }, [enqueue, note, setLangCode, stopMic, stopSpeech]);
@@ -274,7 +276,7 @@ export function GuideChat({ air, weather, name, tasks, userKey, active = true, o
           <select className="select" value={lang.code} onChange={(e) => { setLangCode(e.target.value); langRef.current = langOf(e.target.value); stopSpeech(); setVoiceName(''); }} aria-label="Language">
             {LANGS.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
           </select>
-          <div className="callout" style={{ marginTop: 10 }}><Alert /><span>Urdu and Hindi use a free translation service: your messages are sent to it. Don’t type personal details. Translation may be imperfect. Type Urdu in Urdu script (اردو) and Hindi in Devanagari (हिन्दी); a few Roman Urdu words such as kachra, darakht and paani also work.</span></div>
+          <div className="callout" style={{ marginTop: 10 }}><Alert /><span>Hindi uses a free translation service: your messages are sent to it. Don’t type personal details. Translation may be imperfect, and Hindi should be typed in Devanagari (हिन्दी), not Roman letters.</span></div>
           {noVoice && <p className="muted tiny" style={{ marginTop: 8 }}>No {lang.name} voice is installed in this browser, so replies are text only.</p>}
         </section>
 
@@ -305,6 +307,12 @@ function TaskCard({ v, decision, onDecide }: { v: TaskView; decision?: 'accept' 
       <div className="g-card-top"><span aria-hidden>{ty.emoji}</span><b>{t.title}</b></div>
       <div className="chip-row wrap"><span className="chip">{t.area}</span><span className="chip">{v.distKm.toFixed(1)} km</span><span className="chip">{t.hours} h</span><span className="chip">{t.indoor ? 'Indoor' : 'Outdoor'}</span><span className={`chip ${v.needed ? 'needed' : ''}`}>{v.needed ? `High need · ${t.need}/100` : `Need ${t.need}/100`}</span></div>
       <p className="muted tiny" style={{ margin: '6px 0 0' }}>Why here: {t.reason}</p>
+      {decision === 'accept' && (
+        <div className="g-where">
+          <span className="muted tiny">Where: {t.area} (the middle of the neighbourhood; your organization confirms the exact meeting spot)</span>
+          <span className="chip-row wrap"><a className="btn btn-sm btn-primary" href={mapsView(t.lat, t.lon)} target="_blank" rel="noopener noreferrer">📍 Open in Google Maps</a><a className="btn btn-sm" href={mapsDirections(t.lat, t.lon)} target="_blank" rel="noopener noreferrer">Get directions</a></span>
+        </div>
+      )}
       {decision ? <div className={`g-status ${decision}`}>{decision === 'accept' ? <><Check />Accepted · pending adult confirmation</> : 'Declined'}</div>
         : <div className="chip-row"><button className="btn btn-primary btn-sm" onClick={() => onDecide(t, 'accept')}>Accept</button><button className="btn btn-sm" onClick={() => onDecide(t, 'decline')}>Decline</button></div>}
     </article>
