@@ -19,7 +19,7 @@ type Sub = 'overview' | 'post' | 'signoff' | 'impact' | 'coverage';
 interface Member { id: string; name: string; email: string | null; joined: string; last_seen: string; logs: number; verified: number; last_log: string | null }
 const ago = (iso: string | null) => { if (!iso) return 'n/a'; const m = Math.round((Date.now() - +new Date(iso)) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
 
-export function OrgConsole() {
+export function OrgConsole({ air = null, weather = null }: { air?: import('../../lib/hooks').LiveAir | null; weather?: import('../../lib/hooks').LiveWeather | null } = {}) {
   const { session } = useAuth();
   const { proofs, shared, sync, refresh } = useLogs();
   const [sub, setSub] = useState<Sub>('overview');
@@ -36,7 +36,7 @@ export function OrgConsole() {
       {sub === 'overview' && <Overview />}
       {sub === 'post' && <PostMission />}
       {sub === 'signoff' && <SignOff />}
-      {sub === 'impact' && <Impact />}
+      {sub === 'impact' && <Impact air={air} weather={weather} />}
       {sub === 'coverage' && <Coverage />}
     </div>
   );

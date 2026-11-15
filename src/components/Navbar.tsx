@@ -2,12 +2,10 @@ import { BrandLogo } from './BrandLogo';
 import { OrgLogo } from './OrgLogo';
 import { hrefFor } from '../lib/hooks';
 import { useAuth } from '../lib/auth';
-import { clearSessionFlags } from '../lib/profilePhoto';
 
 export function Navbar() {
   const { session, logout, leaveOrg } = useAuth();
-  // signing out forgets this session's photo prompts only; the saved photo and the chat stay for the next sign-in
-  const signOut = () => { clearSessionFlags(); logout(); };
+  const signOut = () => logout();
   return (
     <header className="nav nav-solid">
       <div className="nav-inner container-wide">

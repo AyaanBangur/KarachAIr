@@ -45,7 +45,7 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { document.title = `${TABS.find((t) => t.id === tab)!.label} · KarachAir`; return () => { document.title = 'KarachAir, Karachi heat intelligence'; }; }, [tab]);
+  useEffect(() => { document.title = `${TABS.find((t) => t.id === tab)!.label} · KarachAir`; return () => { document.title = 'KarachAir, Karachi heat and clean-air action'; }; }, [tab]);
 
   const select = (id: string | null) => go({ tab: 'explore', unit: id ?? undefined });
   const toggleCompare = (id: string) => setPicks(picks.includes(id) ? picks.filter((x) => x !== id) : picks.length >= 3 ? [...picks.slice(1), id] : [...picks, id]);
@@ -54,8 +54,8 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
     <div className="dash">
       <div className="dash-top container-wide">
         <div className="dash-title">
-          <span className="eyebrow">Climate intelligence</span>
-          <h1>Karachi heat dashboard</h1>
+          <span className="eyebrow">Climate action for students</span>
+          <h1>Karachi heat and air dashboard</h1>
         </div>
         <nav className="dash-tabs" aria-label="Dashboard sections">
           {TABS.map((t) => (
@@ -73,7 +73,7 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
           <div className="explore-side">
             {selectedId
               ? <UnitPanel key={selectedId} id={selectedId} onClose={() => select(null)} onCompare={role === 'org' ? toggleCompare : undefined} inCompare={picks.includes(selectedId)} weather={live.data} />
-              : <CityOverview onOpenUnit={select} weather={live.data} />}
+              : <CityOverview onOpenUnit={select} weather={live.data} air={air.data} />}
           </div>
         </div>
       )}
@@ -84,7 +84,7 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
       {tab === 'report' && <ReportTab picks={picks} air={air.data} weather={live.data} />}
       {tab === 'air' && <AirTab air={air} weather={live.data} />}
       {tab === 'volunteer' && <VolunteerTab air={air} weather={live.data} />}
-      {tab === 'org' && <OrgConsole />}
+      {tab === 'org' && <OrgConsole air={air.data} weather={live.data} />}
       {tab === 'sources' && <div className="tab-body container-wide"><SourcesPanel air={air} weather={live} /></div>}
       </Suspense>
     </div>

@@ -4,6 +4,8 @@ import { useAuth } from '../../lib/auth';
 import { SHARED_ENABLED, useLogs } from '../../lib/logs';
 import { toMission } from '../../lib/orgMissions';
 import { mapsDirections, mapsView } from '../../lib/maps';
+import { coverage } from '../../lib/impact';
+import { fmtCompact } from '../../lib/format';
 import { fieldCountsFrom, generateTasks, priorityTasks, taskToMission } from '../../lib/needs';
 import { useLocalState, type AirState, type LiveWeather } from '../../lib/hooks';
 import { GuideChat } from './GuideChat';
@@ -46,6 +48,7 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
   const offers = bank.filter((m) => matchesFilters(m, filters) && !skipped.includes(m.id));
   const mineProofs = useMemo(() => proofs.filter((p) => mine.has(p.id)).map(parseProof), [proofs, mine]);
   const totals = summarize(mineProofs, null);
+  const myCoverage = coverage(data.units, [], mineProofs.filter((p) => p.status === 'verified').map((p) => p.unitId));
   const unitPos = (id: string | null) => { const u = data.units.find((x) => x.properties.id === id); return u ? { lat: u.properties.centroid[1], lon: u.properties.centroid[0] } : null; };
   const unitName = (id: string | null) => data.units.find((u) => u.properties.id === id)?.properties.name ?? 'Karachi';
   const setF = <K extends keyof Filters>(k: K, v: Filters[K]) => { setFilters({ ...filters, [k]: v }); setOpen(null); };
@@ -204,6 +207,7 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
             <StatTile icon={<Check />} tone="var(--emerald-400)" label="Verified hours" value={fmtH(totals.verifiedHours)} sub={`${totals.signed} mission${totals.signed === 1 ? '' : 's'} verified`} />
             <StatTile icon={<Doc />} tone="var(--c-warn)" label="Accepted, awaiting verification" value={fmtH(totals.pendingHours)} sub={`${totals.pending} mission${totals.pending === 1 ? '' : 's'}`} />
             <StatTile icon={<Pin />} tone="var(--c-cool)" label="Neighbourhoods" value={totals.units} sub="with verified work" />
+            <StatTile icon={<Sparkle />} tone="var(--lime-400)" label="Residents in those areas" value={fmtCompact(myCoverage.residentsReached)} sub="people who live where you helped" />
           </div>
           <section aria-label="Volunteering record">
             <div className="svc-sec-head"><h3>My volunteering record</h3>

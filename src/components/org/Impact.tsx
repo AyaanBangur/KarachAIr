@@ -6,10 +6,14 @@ import { TIER_NAME, fmtH, parseProof, summarize } from '../../lib/service';
 import { downloadText } from '../../lib/export';
 import { StatTile } from '../ui';
 import { Check, Doc, Download, Pin, Users } from '../icons';
+import { unitNeeds } from '../../lib/needs';
+import { coverage } from '../../lib/impact';
+import { fmtCompact } from '../../lib/format';
+import type { LiveAir, LiveWeather } from '../../lib/hooks';
 
 /** Everything the organization's volunteers have done, summarised and exportable for reports and grants. */
-export function Impact() {
-  const { data } = useTerra();
+export function Impact({ air = null, weather = null }: { air?: LiveAir | null; weather?: LiveWeather | null } = {}) {
+  const { data, scores } = useTerra();
   const { session } = useAuth();
   const { proofs } = useLogs();
   const [scope, setScope] = useState('');
@@ -19,6 +23,7 @@ export function Impact() {
   const unitName = (id: string | null) => data.units.find((u) => u.properties.id === id)?.properties.name ?? 'Karachi';
   const signed = list.filter((p) => p.status === 'verified' && (!scope || p.unitId === scope));
   const maxTier = Math.max(1, ...Object.values(s.byTier));
+  const cov = useMemo(() => coverage(data.units, unitNeeds({ units: data.units, scores, air, weather, fieldCounts: new Map() }), list.filter((p) => p.status === 'verified').map((p) => p.unitId)), [data.units, scores, air, weather, list]);
   const slug = org.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
   const csv = () => downloadText(`${slug}-verified-hours.csv`, ['student,school,neighbourhood,mission,tier,hours,signed_by,signed_on', ...signed.map((p) => [p.student, p.school, unitName(p.unitId), p.title, TIER_NAME[p.tier], p.verifiedHours, p.signer?.name ?? '', p.signer?.date ?? ''].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n'), 'text/csv');
@@ -35,6 +40,10 @@ export function Impact() {
           <StatTile icon={<Users />} tone="var(--lime-400)" label="Volunteers contributing" value={s.volunteers} sub="with verified hours" />
           <StatTile icon={<Pin />} tone="var(--c-cool)" label="Neighbourhoods reached" value={s.units} sub={`of ${data.units.length} units`} />
           <StatTile icon={<Doc />} tone="var(--c-warn)" label="Awaiting verification" value={fmtH(s.pendingHours)} sub={`${s.pending} mission${s.pending === 1 ? '' : 's'} · ${s.declined} not verified`} />
+        </div>
+        <div className="org-kpis" style={{ marginTop: 10 }}>
+          <StatTile icon={<Users />} tone="var(--c-pop)" label="Residents where we worked" value={fmtCompact(cov.residentsReached)} sub={`${(cov.residentsShare * 100).toFixed(0)}% of modelled residents (people who live there, not measured benefit)`} />
+          <StatTile icon={<Pin />} tone="var(--c-alert)" label="High-need areas covered" value={`${cov.covered} of ${cov.highNeed}`} sub={cov.uncovered.length ? `Still without verified work: ${cov.uncovered.slice(0, 4).join(', ')}${cov.uncovered.length > 4 ? '…' : ''}` : 'every high-need area has verified work'} />
         </div>
       </section>
 
