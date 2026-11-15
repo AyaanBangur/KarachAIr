@@ -168,11 +168,11 @@ function VolunteerLogin({ go, onDone }: { go: Go; onDone: () => void }) {
 export function JoinOrg() {
   const { session, joinOrg, logout } = useAuth();
   const [orgs, setOrgs] = useState<{ id: string; name: string }[] | null>(null);
-  const [orgId, setOrgId] = useState(''); const [q, setQ] = useState(''); const [code, setCode] = useState('');
+  const [orgId, setOrgId] = useState(''); const [q, setQ] = useState('');
   const [err, setErr] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   useEffect(() => { rpc<{ id: string; name: string }[]>('tw_list_orgs').then(setOrgs).catch(() => setOrgs([])); }, []);
   const list = (orgs ?? []).filter((o) => o.name.toLowerCase().includes(q.trim().toLowerCase()));
-  const submit = async (e: FormEvent) => { e.preventDefault(); setErr(null); setBusy(true); const r = await joinOrg(orgId, code); setBusy(false); if (r) setErr(r); else window.location.hash = hrefFor({ tab: 'volunteer' }); };
+  const submit = async (e: FormEvent) => { e.preventDefault(); setErr(null); setBusy(true); const r = await joinOrg(orgId); setBusy(false); if (r) setErr(r); else window.location.hash = hrefFor({ tab: 'volunteer' }); };
   return (
     <div className="auth">
       <header className="auth-top container-wide">
@@ -199,9 +199,8 @@ export function JoinOrg() {
                 ))}
                 {list.length === 0 && <p className="muted" style={{ fontSize: 13 }}>No organization matches “{q}”.</p>}
               </div>
-              <Field label="Invite code" hint="Your coordinator gives you this code. It stops strangers joining the organization."><input className="field" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} maxLength={20} placeholder="e.g. AB12CD" autoComplete="off" required /></Field>
               {err && <div className="auth-err" role="alert">{err}</div>}
-              <button className="btn btn-primary btn-lg" disabled={busy || !orgId || !code.trim()}>{busy ? <><span className="spinner" />Joining…</> : <>Join organization <ArrowRight /></>}</button>
+              <button className="btn btn-primary btn-lg" disabled={busy || !orgId}>{busy ? <><span className="spinner" />Joining…</> : <>Join organization <ArrowRight /></>}</button>
             </>
           )}
         </form>
