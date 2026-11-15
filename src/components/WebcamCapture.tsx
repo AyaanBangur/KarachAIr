@@ -9,6 +9,11 @@ export function WebcamCapture({ onConfirm, confirmLabel = 'Use this photo' }: { 
 
   const stop = useCallback(() => { stream.current?.getTracks().forEach((t) => t.stop()); stream.current = null; }, []);
   useEffect(() => stop, [stop]);
+  // attach the camera stream as soon as the <video> element is on screen
+  useEffect(() => {
+    const v = video.current, st = stream.current;
+    if (state === 'live' && v && st) { v.srcObject = st; void v.play().catch(() => undefined); }
+  }, [state]);
 
   const start = async () => {
     setError(''); setShot(null); setState('starting');
@@ -16,8 +21,7 @@ export function WebcamCapture({ onConfirm, confirmLabel = 'Use this photo' }: { 
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } }, audio: false });
       stream.current = s;
-      setState('live');
-      requestAnimationFrame(() => { if (video.current) { video.current.srcObject = s; void video.current.play().catch(() => undefined); } });
+      setState('live'); // the stream is attached to the <video> in the effect below, once that element exists
     } catch (e) {
       const n = (e as DOMException).name;
       setError(n === 'NotAllowedError' || n === 'SecurityError' ? 'Camera permission was blocked. Allow the camera for this site in your browser settings, then try again.' : n === 'NotFoundError' ? 'No camera was found on this device.' : 'The camera could not be started. Close other apps that use it and try again.');
