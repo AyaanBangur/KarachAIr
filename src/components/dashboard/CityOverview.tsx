@@ -33,7 +33,7 @@ export function CityOverview({ onOpenUnit, weather, air }: { onOpenUnit: (id: st
 
       <section className="card card-pad" aria-label="Who volunteer work can reach today">
         <h3 className="up-h" style={{ marginTop: 0 }}>Who volunteer work can reach today <span className="chip" style={{ marginLeft: 8 }}>{air ? 'live' : 'satellite ranking only'}</span></h3>
-        <p style={{ margin: '6px 0' }}><b>{fmtCompact(reach.highNeedResidents)} residents ({(reach.highNeedShare * 100).toFixed(0)}%)</b> live in the {reach.highNeedUnits} neighbourhoods with high or urgent need right now{reach.hazardUnits > 0 && <>, and <b>{fmtCompact(reach.hazardResidents)}</b> of them where the air or heat is unsafe today</>}. Highest need: {reach.top.map((t) => `${t.name} (${fmtCompact(t.residents)})`).join(', ')}.</p>
+        <p style={{ margin: '6px 0' }}><b>{fmtCompact(reach.highNeedResidents)} residents ({(reach.highNeedShare * 100).toFixed(0)}%)</b> live in the {reach.highNeedUnits} neighbourhoods with the highest need right now{reach.hazardUnits > 0 && <>, and <b>{fmtCompact(reach.hazardResidents)}</b> of them where the air or heat is unsafe today</>}. Highest need: {reach.top.map((t) => `${t.name} (${fmtCompact(t.residents)})`).join(', ')}.</p>
         <p className="muted" style={{ fontSize: 12.5, margin: 0 }}>This counts who lives where help is needed (WorldPop estimate plus live air and heat). It is reach, not a measured drop in pollution or temperature.</p>
       </section>
 

@@ -7,9 +7,15 @@ import { HIGH_NEED, type UnitNeed } from './needs';
 
 const pop = (u: UnitFeature | undefined) => u?.properties.population ?? 0;
 
+/** The neighbourhoods to focus on: those in high or urgent need, or the 5 highest-need ones when the day is calm and none reach that line. */
+export function priorityAreas(needs: UnitNeed[]): UnitNeed[] {
+  const high = needs.filter((n) => n.priority >= HIGH_NEED);
+  return high.length ? high : needs.slice(0, 5);
+}
+
 export interface Reach {
   total: number;                 // residents modelled across all neighbourhoods
-  highNeedUnits: number;         // neighbourhoods whose need is "High" or "Urgent" right now
+  highNeedUnits: number;         // priority neighbourhoods right now (high or urgent need, else the 5 highest)
   highNeedResidents: number;
   highNeedShare: number;         // 0..1
   hazardUnits: number;           // neighbourhoods with unsafe air or dangerous heat right now
@@ -22,7 +28,7 @@ export interface Reach {
 export function reachNow(units: UnitFeature[], needs: UnitNeed[]): Reach {
   const byId = new Map(units.map((u) => [u.properties.id, u]));
   const total = units.reduce((a, u) => a + pop(u), 0);
-  const high = needs.filter((n) => n.priority >= HIGH_NEED), hazard = needs.filter((n) => n.badWeather);
+  const high = priorityAreas(needs), hazard = needs.filter((n) => n.badWeather);
   const sum = (xs: UnitNeed[]) => xs.reduce((a, n) => a + pop(byId.get(n.unitId)), 0);
   const highNeedResidents = sum(high), hazardResidents = sum(hazard);
   return {
@@ -46,7 +52,7 @@ export function coverage(units: UnitFeature[], needs: UnitNeed[], verifiedUnitId
   const reached = new Set(verifiedUnitIds.filter((x): x is string => !!x));
   const byId = new Map(units.map((u) => [u.properties.id, u]));
   const total = units.reduce((a, u) => a + pop(u), 0);
-  const high = needs.filter((n) => n.priority >= HIGH_NEED);
+  const high = priorityAreas(needs);
   const residentsReached = [...reached].reduce((a, id) => a + pop(byId.get(id)), 0);
   return {
     highNeed: high.length, covered: high.filter((n) => reached.has(n.unitId)).length, neighbourhoodsReached: [...reached].filter((id) => byId.has(id)).length,

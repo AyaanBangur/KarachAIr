@@ -43,7 +43,7 @@ export function Impact({ air = null, weather = null }: { air?: LiveAir | null; w
         </div>
         <div className="org-kpis" style={{ marginTop: 10 }}>
           <StatTile icon={<Users />} tone="var(--c-pop)" label="Residents where we worked" value={fmtCompact(cov.residentsReached)} sub={`${(cov.residentsShare * 100).toFixed(0)}% of modelled residents (people who live there, not measured benefit)`} />
-          <StatTile icon={<Pin />} tone="var(--c-alert)" label="High-need areas covered" value={`${cov.covered} of ${cov.highNeed}`} sub={cov.uncovered.length ? `Still without verified work: ${cov.uncovered.slice(0, 4).join(', ')}${cov.uncovered.length > 4 ? '…' : ''}` : 'every high-need area has verified work'} />
+          <StatTile icon={<Pin />} tone="var(--c-alert)" label="Priority areas covered" value={`${cov.covered} of ${cov.highNeed}`} sub={cov.uncovered.length ? `Priority areas still without verified work: ${cov.uncovered.slice(0, 4).join(', ')}${cov.uncovered.length > 4 ? '…' : ''}` : 'every high-need area has verified work'} />
         </div>
       </section>
 

@@ -14,7 +14,8 @@
     "test": "vitest run",
     "eval": "node scripts/run-eval.mjs",
     "findings": "node scripts/run-eval.mjs scripts/findings.ts",
-    "outlook": "node scripts/run-eval.mjs scripts/outlook.ts"
+    "outlook": "node scripts/run-eval.mjs scripts/outlook.ts",
+    "example": "node scripts/run-eval.mjs scripts/example.ts"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
