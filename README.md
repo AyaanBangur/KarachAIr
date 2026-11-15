@@ -74,15 +74,26 @@ Accepted missions are stored as ordinary records (kind `other`, tagged `voluntee
 
 ## What the "AI" is, and is not
 
-- **Hawa is the AI that matches students to missions.** A trained text classifier (multinomial Naive Bayes on words and letter-triples, trained in the browser from `src/lib/intentCorpus.ts`) works out which activity a student means; the keyword rules answer first and the model is the confident fallback. On sentences it never saw it reaches **86%** (95% interval 79% to 91%) against 26% for always guessing the most common label and 59% for the keyword rules alone. Full method, per-activity results, confusion matrix, group checks and failures are in `docs/RESULTS.md`.
+- **Hawa is the AI that matches students to missions.** A trained text classifier (logistic regression on words and letter-triples, trained in the browser from `src/lib/intentCorpus.ts`; the keyword rules are the fallback) works out which activity a student means. On 189 sentences it never saw it reaches **86%** (95% interval 80% to 90%) against 25% for always guessing the most common label and 59% for the keyword rules alone (McNemar p < 0.001; 5-fold cross-validation 86.3%). Method, per-activity results, confusion matrix, group checks and failures are in `docs/RESULTS.md`.
 - The **Heat Risk Index** and the **mission generator** are transparent formulas and rules over measured data, not trained models, so every number can be explained. Insights are rule-generated and show their evidence, confidence and method.
 - **Hawa is a guided script plus the classifier above, not a large language model**, and she says so.
 - **Voice**: speech output and recognition use the browser's own speech features (Chrome/Edge send audio to their speech service). "Whisper Flow" cleans voice input with built-in rules; an optional language-model endpoint (`GROQ_API_KEY`, dev server) is supported.
 - **Translation**: for Hindi chats the student's messages and the guide's replies go through the free MyMemory translation service. The app warns users not to type personal details. Translation can be wrong.
 
+## Reproduce it
+
+```bash
+npm ci            # install
+npm test          # 67 automated tests (guide, model, mission generator, report, certificate)
+npm run eval      # re-measure Hawa and rewrite docs/RESULTS.md (baselines, held-out test, cross-validation, failures)
+npm run build     # type check + production build
+```
+
+A GitHub Actions workflow (`.github/workflows/ci.yml`) runs the type check, the tests and the build on every push.
+
 ## Tests and results
 
-`npm test` runs 57 automated tests (guide, mission generator, air-alert checker, voice cleaner, map extents, certificate PDF, report). `npm run eval` measures the guide and the mission generator on a labelled set and rewrites [`docs/RESULTS.md`](docs/RESULTS.md). The one-page write-up is [`docs/WRITEUP.md`](docs/WRITEUP.md) and the demo-video script is [`docs/VIDEO_SCRIPT.md`](docs/VIDEO_SCRIPT.md).
+`npm test` runs 67 automated tests (guide, mission generator, air-alert checker, voice cleaner, map extents, certificate PDF, report). `npm run eval` measures the guide and the mission generator on a labelled set and rewrites [`docs/RESULTS.md`](docs/RESULTS.md). The one-page write-up is [`docs/WRITEUP.md`](docs/WRITEUP.md) and the demo-video script is [`docs/VIDEO_SCRIPT.md`](docs/VIDEO_SCRIPT.md).
 
 ## Known limits
 

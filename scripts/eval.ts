@@ -53,7 +53,9 @@ for (const model of ['nb', 'lr'] as const) for (const mode of ['model-only', 'mo
   const s = scoreOn(val, (e) => { const d = decideWith(pol, model === 'nb' ? probsNB(nb, e.text) : probsLR(lrTrain, e.text), valRulesRaw.get(e.text) ?? null); return d && d.length === 1 ? d[0] : 0; });
   search.push({ ...pol, acc: s.acc, fa: s.offFalseAccept });
 }
-const best = [...search].sort((a, b) => b.acc - a.acc || a.fa - b.fa)[0];
+// Rule: the chosen setting may not wrongly accept MORE off-topic answers than the keyword rules do (on validation), then take the most accurate.
+const okFA = search.filter((s) => s.fa <= valRules.offFalseAccept + 1e-9);
+const best = [...(okFA.length ? okFA : search)].sort((a, b) => b.acc - a.acc || a.fa - b.fa)[0];
 const policyMatches = best.model === POLICY.model && best.mode === POLICY.mode && best.tau === POLICY.tau;
 
 // ---- the one-time test report (deployed model = trained on train + validation; deployed policy)
@@ -66,6 +68,25 @@ const confusion = LABELS.map((t) => LABELS.map((p) => preds.filter((x) => x.e.la
 const group = (name: string, f: (e: Example) => boolean) => { const g = test.filter(f), a = scoreOn(g, (e) => Math.max(0, hybridLabel(e.text))), b = scoreOn(g, (e) => Math.max(0, rulesLabel(e.text))); return `| ${name} | ${g.length} | ${pct(b.acc)} | **${pct(a.acc)}** |`; };
 const failures = preds.filter((x) => x.p !== x.e.label).slice(0, 12).map((x) => `- "${x.e.text}" (${x.e.variant}): said ${NAME[x.p]}, should be ${NAME[x.e.label]}`);
 const ci = wilson(tHybrid.k, tHybrid.n), ciR = wilson(tRules.k, tRules.n);
+
+// ---- is the improvement real? McNemar's exact test on the same test sentences (only the sentences where rules and model disagree matter)
+const hyOK = test.map((e) => Math.max(0, hybridLabel(e.text)) === e.label), ruOK = test.map((e) => Math.max(0, rulesLabel(e.text)) === e.label);
+let rulesOnlyRight = 0, modelOnlyRight = 0; hyOK.forEach((h, i) => { if (ruOK[i] && !h) rulesOnlyRight++; if (!ruOK[i] && h) modelOnlyRight++; });
+const nDis = rulesOnlyRight + modelOnlyRight;
+const choose = (n: number, k: number) => { let r = 1; for (let i = 1; i <= k; i++) r = (r * (n - k + i)) / i; return r; };
+let tail = 0; for (let k = 0; k <= Math.min(rulesOnlyRight, modelOnlyRight); k++) tail += choose(nDis, k);
+const mcnemarP = nDis ? Math.min(1, (2 * tail) / 2 ** nDis) : 1;
+
+// ---- 5-fold cross-validation, grouped by base sentence (every fold is tested on sentences its model never saw)
+const foldOf = (b: string) => { let x = 2166136261; for (const c of 'cv:' + b) { x ^= c.charCodeAt(0); x = Math.imul(x, 16777619); } return (x >>> 0) % 5; };
+const cv = [0, 1, 2, 3, 4].map((f) => {
+  const m = trainNB(ex.filter((e) => foldOf(e.base) !== f)), te = ex.filter((e) => foldOf(e.base) === f);
+  const model = scoreOn(te, (e) => { const d = decideWith(POLICY, probsNB(m, e.text), rulesOn(e)); return d && d.length === 1 ? d[0] : 0; }).acc;
+  const rulesAcc = scoreOn(te, (e) => Math.max(0, rulesLabel(e.text))).acc;
+  return { model, rulesAcc };
+});
+const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length, sd = (a: number[]) => Math.sqrt(a.reduce((x, y) => x + (y - mean(a)) ** 2, 0) / (a.length - 1));
+const cvM = cv.map((c) => c.model), cvR = cv.map((c) => c.rulesAcc);
 
 // ====================================================================== 2. Hawa's other skills (places, indoor/outdoor, conversation)
 const areaName = (id: string) => AREAS.find((a) => a.unitId === id)!.name;
@@ -156,6 +177,17 @@ ${group('Reworded ("I want to...", "maybe...")', (e) => e.variant === 'framed')}
 ${group('Short (1 to 3 words)', (e) => e.base.split(' ').length <= 3)}
 ${group('Long (6 or more words)', (e) => e.base.split(' ').length >= 6)}
 
+### Is the improvement real, or luck? (same ${test.length} test sentences)
+
+On the sentences where the rules and the model disagree, the model alone was right ${modelOnlyRight} times and the rules alone ${rulesOnlyRight} times. McNemar's exact test gives **p = ${mcnemarP < 0.001 ? '< 0.001' : mcnemarP.toFixed(3)}**, ${mcnemarP < 0.05 ? 'so the improvement is very unlikely to be chance' : 'so we cannot rule out chance'}.
+
+### Cross-validation (5 folds, grouped by base sentence, each fold tested on sentences its model never saw)
+
+| Method | Mean accuracy | Spread (standard deviation) |
+|---|---|---|
+| Keyword rules only | ${pct(mean(cvR), 1)} | ${pct(sd(cvR), 1)} |
+| **Hawa with the trained model** | **${pct(mean(cvM), 1)}** | ${pct(sd(cvM), 1)} |
+
 ### Where it fails
 
 ${failures.length ? failures.join('\n') : 'No failures on this test set.'}
@@ -182,6 +214,11 @@ Why we think it fails: the model learns from words and letter patterns, not mean
 - **Greenery vs heat is a weak link.** Across ${reg.n.toLocaleString('en-US')} pixels, R-squared is only **${reg.r2.toFixed(3)}** (greenery explains about ${(reg.r2 * 100).toFixed(1)}% of the differences). We treat greening effects as small and uncertain.
 - **Air quality is a ~11 km model (CAMS), not street-level sensors.**
 - **The Heat Risk Index is a relative ranking** of 24 neighbourhoods, not a trained model and not an absolute danger level.
+
+## What we tried that did not help
+
+- **Word pairs as extra features.** On the validation split, logistic regression went from 87% to 88% and Naive Bayes stayed at 88%, a gain well inside the noise of a validation set this size, so we kept the simpler model. Choosing it because the test score happened to dip would be cherry-picking, and so would choosing the other way, so the validation split decided.
+- **A confidence threshold alone** (without the cap on wrongly accepted off-topic answers) gave a slightly higher validation accuracy but let Hawa treat more off-topic answers as activities than the keyword rules do, so we added the cap.
 
 ## What is not measured (we are telling you before you ask)
 

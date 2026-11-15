@@ -92,7 +92,7 @@ export function probsLR(m: LRModel, text: string): { label: number; p: number }[
 export type Mode = 'model-only' | 'model-first' | 'rules-first';
 export interface Policy { model: 'nb' | 'lr'; mode: Mode; tau: number }
 /** Deployed settings, CHOSEN ON THE VALIDATION SPLIT by `npm run eval` (it prints the search and warns if these drift). */
-export const POLICY: Policy = { model: 'nb', mode: 'rules-first', tau: 0.7 };
+export const POLICY: Policy = { model: 'lr', mode: 'model-first', tau: 0.5 };
 
 /**
  * Combine the model's probabilities with what the keyword rules understood.

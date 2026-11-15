@@ -14,6 +14,9 @@ export const CORPUS: Record<number, string[]> = {
     'remove the smoke from burning trash', 'photograph illegal dumping', 'help the sanitation workers', 'less plastic in our school canteen', 'clean the playground of litter', 'stop smoke from burning garbage',
     'talk to shopkeepers about throwing waste', 'waste collection volunteers', 'dispose of rubbish properly', 'clear the heaps of garbage near the market', 'reduce burning of waste in our area',
     'make a recycling point', 'gather the plastic bags', 'litter picking', 'get the dirty street clean', 'teach kids not to litter', 'stop garbage fires near houses', 'waste free school drive',
+    'wipe out the garbage mountain near the school', 'bring a bag and collect trash on the beach', 'stop neighbours from burning their rubbish', 'make people throw waste in the bin',
+    'organise plastic bottle collection', 'clean the drains of plastic and litter', 'talk to the kabadi wala about recycling', 'remove the burning smell from garbage heaps',
+    'clean-up drive after the festival', 'stop fires of dry leaves and plastic', 'give out dustbins to shops', 'reuse and recycle workshop for students',
   ],
   2: [
     'ask drivers to switch off engines', 'cars waiting with engines on', 'school gate traffic', 'traffic jam fumes', 'reduce vehicle exhaust', 'carpooling for students', 'take the bus instead of cars',
@@ -25,6 +28,9 @@ export const CORPUS: Record<number, string[]> = {
     'ask taxi drivers to stop idling', 'engine off at the red light', 'help reduce the car queue at school', 'traffic exhaust near our school', 'cars blocking and polluting the gate',
     'organise car sharing among parents', 'stand at the gate and talk to drivers', 'vehicles left running outside the mosque', 'old trucks making black smoke', 'reduce honking and fumes at pickup',
     'encourage students to walk', 'make a poster for drivers about idling', 'monitor traffic fumes at rush hour', 'less congestion at school gates', 'tell drivers the air gets worse when engines idle',
+    'stop auto rickshaws idling at the signal', 'convince the school van driver to switch off the engine', 'a campaign for no idling near the hospital', 'count vehicles that wait with the engine on',
+    'walk-to-school drive to cut down traffic fumes', 'help parents carpool to school', 'remind taxi queue drivers to turn the key', 'fewer motorbikes revving at the gate',
+    'bus lanes and less traffic smoke', 'signs reminding drivers to switch off', 'monitor exhaust smoke from old minibuses', 'ask the van drivers outside the college to stop idling',
   ],
   3: [
     'plant some trees', 'grow saplings', 'greening the area', 'reduce dust on the road', 'water the young plants', 'neem and moringa trees', 'plant a hedge by the wall',
@@ -35,6 +41,9 @@ export const CORPUS: Record<number, string[]> = {
     'make our street cooler with trees', 'dig holes and plant', 'greenery to cut down the dust storms', 'a garden in the empty plot', 'plant a tree for each student', 'keep the saplings alive in summer',
     'shade for the bus stop', 'grass and bushes on the open ground', 'mulch and water the plants', 'trees to cool down the neighbourhood', 'turn the dusty lot into a garden',
     'plant trees near the highway', 'collect seeds and grow them', 'look after the school garden', 'green the school boundary', 'fight the dust with trees', 'more shade and more green',
+    'plant neem saplings near the playground', 'stop dust storms by growing hedges', 'sow seeds on the empty ground', 'look after the new trees at the park',
+    'trees and bushes to shade the footpath', 'cover the sandy lot with plants', 'water the saplings every morning', 'build a green wall along the road',
+    'plant moringa and keep them alive', 'help turn the barren land into a green patch', 'grow plants to hold the soil', 'tree planting day with my class',
   ],
   4: [
     'give out face coverings', 'mask distribution', 'teach people about asthma', 'a health awareness talk', 'make posters about clean air', 'protect workers from heat', 'give water to outdoor workers',
@@ -46,6 +55,9 @@ export const CORPUS: Record<number, string[]> = {
     'give water bottles to rickshaw drivers', 'explain what the air colours mean', 'spread the word about staying indoors on smoggy days', 'visit homes with safety information', 'awareness stall at the school fair',
     'show people the air quality alert', 'protect children from the smog', 'whatsapp messages about heat safety', 'health and safety advice for street vendors', 'tell the community about the dangers of dust',
     'teach first aid for heat exhaustion', 'make an urdu poster about masks', 'help neighbours with asthma', 'share the daily air status with families', 'mask and hydration packs for workers',
+    'hand out masks at the bus stand', 'explain to students why smog is harmful', 'a poster to warn people about heat waves', 'give oral rehydration packets to workers',
+    'teach neighbours about staying safe in dust', 'make an awareness video about air pollution', 'tell elderly relatives to stay inside when the air is bad', 'distribute water to labourers in the afternoon sun',
+    'explain the air quality colours to families', 'school assembly talk on heat safety', 'help children with asthma find their inhaler time', 'share safety advice with shopkeepers',
   ],
   5: [
     'record temperature readings', 'collect measurements', 'use a thermometer', 'log pollution events', 'check the air sensor', 'analyse the numbers', 'make charts from readings',
@@ -57,6 +69,9 @@ export const CORPUS: Record<number, string[]> = {
     'count how many trees are on our street and record it', 'keep a record of smoky days', 'test how accurate the satellite map is', 'use the air quality numbers for a school project', 'write up the findings from our readings',
     'check the weather instrument', 'track which days are the hottest', 'data entry for the volunteer team', 'map the shaded areas', 'measure humidity and temperature', 'research how hot our neighbourhood gets',
     'clean up the dataset', 'collect field observations', 'learn to read the air quality sensor',
+    'write down the temperature every afternoon', 'help check the pollution monitor on the roof', 'count smoky days and record them', 'make a chart of the heat readings from our street',
+    'compare the sensor numbers with the satellite map', 'measure shade and sun temperature side by side', 'keep a log of the air quality at school', 'analyse the readings in a spreadsheet',
+    'note the readings and send them to the report', 'use a thermometer on the road surface', 'track the humidity and temperature each day', 'find patterns in the pollution data',
   ],
   0: [
     'i like football', 'what time is it', 'maybe later', 'i do not know', 'how are you', 'my favourite colour is blue', 'tell me a joke', 'what is the capital of france', 'i am hungry', 'good morning',
@@ -66,5 +81,8 @@ export const CORPUS: Record<number, string[]> = {
     'i love pizza', 'when is the exam', 'can i get a day off', 'what should i wear', 'my cat is sleeping', 'show me a movie', 'who won the match', 'i need a new phone', 'what is two plus two',
     'where do you live', 'do you like dogs', 'i am bored', 'let us chat about holidays', 'how do i get to the airport', 'what is the price of a phone', 'i want ice cream', 'tell me a story', 'it is so hot today', 'can we talk later',
     'i forgot my homework', 'which team do you support', 'my brother is annoying', 'the bus is late again', 'i might go swimming', 'please repeat that',
+    'what is your favourite food', 'i want to watch a cartoon', 'do you know any songs', 'when does school start',
+    'it is very cold today', 'my friend is waiting for me', 'can you tell me the news', 'i do not feel like talking',
+    'what is the score of the match', 'how tall is the tower', 'let me think about it', 'i will ask my mother first',
   ],
 };

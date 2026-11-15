@@ -2,13 +2,10 @@ import { BrandLogo } from './BrandLogo';
 import { OrgLogo } from './OrgLogo';
 import { hrefFor } from '../lib/hooks';
 import { useAuth } from '../lib/auth';
-import { clearSessionFlags, startEdit, usePhotoState } from '../lib/profilePhoto';
+import { clearSessionFlags } from '../lib/profilePhoto';
 
 export function Navbar() {
   const { session, logout, leaveOrg } = useAuth();
-  const photoId = session?.volunteer?.id ?? session?.member?.id ?? 'demo';
-  const { photo } = usePhotoState(photoId);
-  const name = session?.role === 'org' ? session.org?.name ?? '' : session?.member?.name ?? '';
   // signing out forgets this session's photo prompts only; the saved photo and the chat stay for the next sign-in
   const signOut = () => { clearSessionFlags(); logout(); };
   return (
@@ -27,11 +24,6 @@ export function Navbar() {
                 {session.role === 'volunteer' && <small>{session.org?.name}</small>}
               </span>
               {session.role === 'volunteer' && <button className="btn btn-ghost btn-sm" onClick={leaveOrg}>Switch organization</button>}
-              {session.role === 'volunteer' && (
-                <button type="button" className="avatar" onClick={() => startEdit(photoId)} title="Change profile photo" aria-label="Profile photo. Press to change it.">
-                  {photo ? <img src={photo} alt="" /> : <span>{(name.trim()[0] ?? '?').toUpperCase()}</span>}
-                </button>
-              )}
               <button className="btn btn-ghost btn-sm" onClick={signOut}>Sign out</button>
             </span>
           )}

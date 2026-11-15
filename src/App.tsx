@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Component, useEffect, type ErrorInfo, type ReactNode } from 'react';
 import { Logo } from './components/icons';
 import { Navbar } from './components/Navbar';
 import { DataProvider } from './lib/data';
@@ -8,8 +8,6 @@ import { ScenarioProvider } from './lib/scenarioState';
 import { useRoute } from './lib/hooks';
 import { Dashboard } from './pages/Dashboard';
 import { Login, JoinOrg } from './pages/Login';
-import { PhotoGate } from './components/PhotoGate';
-import { syncProfile, usePhotoState } from './lib/profilePhoto';
 
 function Splash({ text = "Loading Karachi's heat data…" }: { text?: string }) {
   return (
@@ -36,25 +34,11 @@ function Failure({ error }: { error: Error }) {
 function Shell() {
   const [route, go] = useRoute();
   const { session, checking } = useAuth();
-  const photoId = session?.volunteer?.id ?? session?.member?.id ?? 'demo';
-  const { photo, mustAsk, editing } = usePhotoState(photoId);
-  // load the volunteer's saved photo from their account before deciding whether to ask for one
-  const [profileReady, setProfileReady] = useState(false);
-  useEffect(() => {
-    setProfileReady(false);
-    if (session?.role !== 'volunteer') { setProfileReady(true); return; }
-    let live = true;
-    void syncProfile(photoId, session.token).finally(() => { if (live) setProfileReady(true); });
-    return () => { live = false; };
-  }, [session?.role, session?.token, photoId]);
   // signed-in users never sit on the login pages; signed-out users can only see them
   useEffect(() => { if (session && route.page === 'login') go({ page: 'dashboard', tab: session.role === 'org' ? 'org' : 'volunteer' }); }, [session, route.page, go]);
   if (checking) return <Splash text="Checking your session…" />;
   if (!session) return <Login tab={route.page === 'login' ? route.tab : ''} go={go} />;
   if (session.role === 'volunteer' && !session.org) return <JoinOrg />;
-  // volunteers take a webcam profile photo once per browser session (or choose to continue without one)
-  if (session.role === 'volunteer' && session.org && !profileReady) return <Splash text="Loading your profile…" />;
-  if (session.role === 'volunteer' && session.org && !session.demo && mustAsk) return <PhotoGate id={photoId} editing={editing} hasPhoto={!!photo} />;
   return (
     <>
       <a href="#main" className="skip-link">Skip to content</a>
@@ -64,14 +48,26 @@ function Shell() {
   );
 }
 
+/** If anything crashes, show a friendly message instead of a blank page. */
+class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(e: Error, info: ErrorInfo) { console.error('KarachAir crashed:', e, info.componentStack); }
+  render() {
+    return this.state.failed
+      ? <div className="splash"><div className="card card-pad" style={{ maxWidth: 480 }}><h3 style={{ marginBottom: 8 }}>Something went wrong</h3><p className="muted" style={{ marginBottom: 14 }}>The page hit an unexpected problem. Your data is safe. Reloading usually fixes it.</p><button className="btn" onClick={() => window.location.reload()}>Reload the page</button></div></div>
+      : this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <DataProvider fallback={<Splash />} onError={(e) => <Failure error={e} />}>
+    <ErrorBoundary><DataProvider fallback={<Splash />} onError={(e) => <Failure error={e} />}>
       <AuthProvider>
         <LogsProvider>
           <ScenarioProvider><Shell /></ScenarioProvider>
         </LogsProvider>
       </AuthProvider>
-    </DataProvider>
+    </DataProvider></ErrorBoundary>
   );
 }

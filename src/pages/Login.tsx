@@ -159,7 +159,7 @@ function VolunteerLogin({ go, onDone }: { go: Go; onDone: () => void }) {
         {err && <div className="auth-err" role="alert">{err}</div>}
         <button className="btn btn-primary btn-lg" disabled={busy || !email.trim() || !pass || (mode === 'up' && !name.trim())}>{busy ? <><span className="spinner" />Please wait…</> : mode === 'up' ? <>Create account <ArrowRight /></> : <>Sign in <ArrowRight /></>}</button>
       </form>
-      <p className="auth-alt muted">{mode === 'in' && <><a href="#/login/volunteer" onClick={(e) => { e.preventDefault(); setForgot(true); setSent(null); }}>Forgot your password?</a> </>}Representing an organization? <a href={hrefFor({ page: 'login', tab: 'organization' })}>Sign in here</a></p>
+      <p className="auth-alt muted">Representing an organization? <a href={hrefFor({ page: 'login', tab: 'organization' })}>Sign in here</a></p>
     </Shell>
   );
 }
@@ -254,7 +254,7 @@ function OrgLogin({ go, onDone }: { go: Go; onDone: () => void }) {
         {err && <div className="auth-err" role="alert">{err}</div>}
         <button className="btn btn-primary btn-lg" disabled={busy || !name.trim() || !pass || (mode === 'up' && !email.trim())}>{busy ? <><span className="spinner" />Please wait…</> : mode === 'in' ? <>Sign in <ArrowRight /></> : <>Create organization <ArrowRight /></>}</button>
       </form>
-      <p className="auth-alt muted">{mode === 'in' && <><a href="#/login/organization" onClick={(e) => { e.preventDefault(); setForgot(true); setSent(null); }}>Forgot your passcode?</a> </>}Joining as a student? <a href={hrefFor({ page: 'login', tab: 'volunteer' })}>Volunteer sign-in</a></p>
+      <p className="auth-alt muted">Joining as a student? <a href={hrefFor({ page: 'login', tab: 'volunteer' })}>Volunteer sign-in</a></p>
     </Shell>
   );
 }

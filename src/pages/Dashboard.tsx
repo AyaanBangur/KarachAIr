@@ -1,18 +1,18 @@
-import { useEffect, useMemo } from 'react';
+import { Suspense, lazy, useEffect, useMemo } from 'react';
 import { useTerra } from '../lib/data';
 import { hrefFor, useLiveAir, useLiveWeather, useLocalState, type Go, type Route } from '../lib/hooks';
-import { ReportTab } from '../components/dashboard/ReportTab';
-import { VolunteerTab } from '../components/volunteer/VolunteerTab';
+const ReportTab = lazy(() => import('../components/dashboard/ReportTab').then((m) => ({ default: m.ReportTab })));
+const VolunteerTab = lazy(() => import('../components/volunteer/VolunteerTab').then((m) => ({ default: m.VolunteerTab })));
 import { MapExplorer } from '../components/dashboard/MapExplorer';
 import { UnitPanel } from '../components/dashboard/UnitPanel';
 import { CityOverview } from '../components/dashboard/CityOverview';
-import { CompareTab } from '../components/dashboard/CompareTab';
-import { TrendsTab } from '../components/dashboard/TrendsTab';
-import { AirTab } from '../components/air/AirTab';
+const CompareTab = lazy(() => import('../components/dashboard/CompareTab').then((m) => ({ default: m.CompareTab })));
+const TrendsTab = lazy(() => import('../components/dashboard/TrendsTab').then((m) => ({ default: m.TrendsTab })));
+const AirTab = lazy(() => import('../components/air/AirTab').then((m) => ({ default: m.AirTab })));
 import { Compare, Doc, Droplet, MapIcon, Satellite, Sparkle, Table, Trend } from '../components/icons';
-import { SourcesPanel } from '../components/SourcesPanel';
+const SourcesPanel = lazy(() => import('../components/SourcesPanel').then((m) => ({ default: m.SourcesPanel })));
 import { useAuth } from '../lib/auth';
-import { OrgConsole } from '../components/org/OrgConsole';
+const OrgConsole = lazy(() => import('../components/org/OrgConsole').then((m) => ({ default: m.OrgConsole })));
 
 const ALL_TABS = [
   { id: 'explore', label: 'Map explorer', icon: MapIcon, roles: ['org', 'volunteer'] },
@@ -77,6 +77,8 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
           </div>
         </div>
       )}
+      {/* each tab loads on demand, so the first page is small and fast */}
+      <Suspense fallback={<div className="tab-body container-wide"><div className="skeleton" style={{ height: 240 }} aria-label="Loading" /></div>}>
       {tab === 'compare' && <CompareTab picks={picks} setPicks={setPicks} onOpenUnit={select} />}
       {tab === 'trends' && <TrendsTab picks={picks} />}
       {tab === 'report' && <ReportTab picks={picks} air={air.data} weather={live.data} />}
@@ -84,6 +86,7 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
       {tab === 'volunteer' && <VolunteerTab air={air} weather={live.data} />}
       {tab === 'org' && <OrgConsole />}
       {tab === 'sources' && <div className="tab-body container-wide"><SourcesPanel air={air} weather={live} /></div>}
+      </Suspense>
     </div>
   );
 }
