@@ -126,8 +126,9 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
           {alerts.length > 0 && <>
             <div className="svc-sec-head"><h3>Where help is needed most right now</h3></div>
             <p className="muted" style={{ margin: '-4px 0 12px' }}>Ranked from live air quality, live heat, and the KarachAir report&rsquo;s heat-risk data. The worst conditions come first.</p>
-            <div className="mission-bank" style={{ marginBottom: 22 }}>{alerts.map((t) => { const m = taskToMission(t); return (
-              <article key={t.id} className={`mcard tier-3 ${missionLocked(m, gate) ? 'locked' : ''}`}>
+            <div className="mission-bank" style={{ marginBottom: 22 }}>{alerts.map((t) => { const m = taskToMission(t); const isLocked = missionLocked(m, gateFor(air.data?.byUnit[t.unitId] ?? null, simulate, t.area)); const best = alerts.find((x) => !missionLocked(taskToMission(x), gateFor(air.data?.byUnit[x.unitId] ?? null, simulate, x.area)))?.id === t.id; return (
+              <article key={t.id} className={`mcard tier-3 ${isLocked ? 'locked' : ''}`}>
+                {best && <span className="chip needed" style={{ justifySelf: 'start' }}>Best right now: high need and safe today</span>}
                 <div className="mcard-chips"><span className="chip mtier">{m.tierLabel} · {t.need}/100</span><span className={`chip mwhere ${m.where}`}>{m.where === 'indoor' ? 'Indoor safe' : 'Adult-supervised'}</span><span className="chip"><Pin />{t.area}</span></div>
                 <span className="mtrigger">Why: {t.reason}</span>
                 <h4>{m.title}</h4><p>{m.desc}</p>

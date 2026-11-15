@@ -80,6 +80,10 @@ Accepted missions are stored as ordinary records (kind `other`, tagged `voluntee
 - **Voice**: speech output and recognition use the browser's own speech features (Chrome/Edge send audio to their speech service). "Whisper Flow" cleans voice input with built-in rules; an optional language-model endpoint (`GROQ_API_KEY`, dev server) is supported.
 - **Translation**: for Hindi chats the student's messages and the guide's replies go through the free MyMemory translation service. The app warns users not to type personal details. Translation can be wrong.
 
+## What is original here
+
+Our own question: *"Where should a student volunteer today, and is it safe to?"* Most tools stop at a number; KarachAir closes the loop from live satellite, air and heat data to an **explained** mission, a **safety lock** for outdoor work, a **"Best right now"** pick (highest need that is also safe today), a free-text guide that understands how students really type, and a **verified certificate**. See `docs/WRITEUP.md`.
+
 ## Reproduce it
 
 ```bash

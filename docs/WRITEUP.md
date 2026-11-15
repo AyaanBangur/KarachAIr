@@ -11,7 +11,14 @@ Karachi has some of the hottest neighbourhoods and dirtiest air in the region. S
 A student types what they want to do ("ask parents to turn off car engines", "plant more trees"). **Hawa**, a volunteer guide, uses a trained model to work out which of five activities they mean, then offers matching missions for the places that need help most, ranked by live air quality, live heat and a satellite heat-risk ranking, each with the reason and a Google Maps link. Outdoor missions lock when the air is hazardous and need an adult. An organization verifies the hours and issues a certificate. Organizations also get a live report with line graphs and the same mission list.
 
 ## What we added
-Our own idea (not one of the suggested projects): our own place (Karachi, 24 neighbourhoods), our own data (satellite heat, population, live air), and our own user (students and coordinators).
+Our own idea (not one of the suggested projects). **Our own question:** *"Where should a student volunteer today, and is it safe to?"* Most tools stop at showing a number. We close the loop from data to action to proof:
+- **Our own place and data:** Karachi's 24 neighbourhoods, NASA satellite heat, population, vegetation and live air and weather, not a tutorial dataset.
+- **Our own user:** high-school volunteers and the coordinators who place them. The mission list explains itself ("PM2.5 140 µg/m³ (live), heat risk #2 of 24").
+- **Need and safety together:** missions are ranked by need, and outdoor ones lock automatically when the air is hazardous. The hub marks the **"Best right now"**: the highest-need mission that is also safe today.
+- **Understands how students really write:** a trained model maps free-typed sentences, typos included, to activities, instead of forcing menu clicks.
+- **Verified outcome:** an organization verifies the hours and the student gets a certificate with a note about what they did.
+
+**How it differs:** typical air-quality apps and dashboards show readings and stop there; general volunteering platforms list generic tasks with no link to live environmental data. We did not find a tool that turns satellite and live air and heat data into explained, safety-gated, verifiable volunteer missions for students (we cannot promise none exists).
 
 ## How it works
 **Data:** NASA MODIS land-surface temperature (3 hot seasons, 23 composites) and vegetation, WorldPop population, OpenStreetMap health facilities, ERA5-Land, and live Open-Meteo weather and air quality (CAMS model, ~11 km). Mission priority is a transparent formula over these, not a trained model, so every number can be explained.
