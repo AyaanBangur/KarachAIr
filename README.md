@@ -1,6 +1,6 @@
-# TerraWatch AI — Karachi heat intelligence
+# TerraWatch AI — Karachi heat & clean-air intelligence
 
-Interactive climate-intelligence platform that ranks Karachi's 24 administrative units by extreme-heat risk, built entirely on **open data fetched by a reproducible pipeline**. No keys, no secrets, no backend.
+Interactive climate-intelligence platform for Karachi's 24 administrative units. It ranks neighbourhoods by extreme-heat risk, shows live air quality, and connects student volunteers with community-service missions that an organization verifies and certifies. The heat and air analysis is built on **open data fetched by a reproducible pipeline**; the volunteer and organization features use an optional shared database.
 
 ## Run it
 
@@ -8,12 +8,13 @@ Interactive climate-intelligence platform that ranks Karachi's 24 administrative
 npm install
 npm run data      # fetch real data -> public/data/*.json (first run ~25-50 min, cached afterwards)
 npm run dev       # http://localhost:5173
-npm run build     # static site in dist/
+npm run build     # type-check + static site in dist/
+npm run typecheck # type-check only
 ```
 
 `npm run data` caches every API response in `data-cache/` (gitignored), so re-runs are fast. The satellite stage is slow because NASA's ORNL service allows one ~35 s request at a time. For a quick first run: `TW_YEARS=2025,2026 npm run data`.
 
-## Data sources (all open)
+## Data sources
 
 | Layer | Source | Notes |
 |---|---|---|
@@ -23,29 +24,68 @@ npm run build     # static site in dist/
 | Health facilities, green space | OpenStreetMap via Overpass | volunteer-mapped; uneven coverage |
 | Air-temperature record | ERA5-Land via Open-Meteo | ~9 km model reanalysis (1950–now) |
 | Live weather | Open-Meteo forecast API (browser, keyless) | |
+| Live air quality | Open-Meteo air-quality API (CAMS model: PM2.5, PM10, NO₂, US AQI) | ~11 km model, **not** street-level sensors |
 | Boundaries | geoBoundaries (PBS 2017) | 18 towns + 6 cantonments |
+
+## Air quality tab
+
+- **Traffic-light status** from live PM2.5: Good ≤ 35, Moderate ≤ 150, Hazardous > 150 µg/m³ (a simple app scale, looser than the WHO 24-hour guideline of 15 µg/m³).
+- **"Why is the air dirty?"** one-line source guess from the hour, NO₂, wind and the PM2.5/PM10 ratio (school-gate traffic, blowing dust, trash-burning smoke, general smog). A rule of thumb with its evidence shown, not source attribution science.
+- **English/Urdu alert** built from a template, with a checker that audits every number in the message against the readings shown.
+- **Under-18 air-safety gate**: outdoor missions lock automatically when the air is hazardous (or live air data is unavailable). Indoor missions stay open.
 
 ## Accounts: volunteers and organizations
 
 Everything sits behind a sign-in with two roles (`#/login`):
 
-- **Volunteer (students):** create an account (name, email, password); after signing in they are prompted to join an organization from a list (switchable from the top bar). Logs follow the account across devices. Emails are not verified and there is no automatic password reset. They get the **Volunteer hub**: Gemini-style field logging with auto-detection, team missions, impact stats, and review status on every log.
-- **Organization (school/NGO):** register with a name + passcode (min 8 chars; 5 wrong attempts lock sign-in for 15 min). They get the **Org console** (roster with emails, coverage-gap map, missions, review queue with field-vs-satellite checks) and the **Report builder**.
+- **Volunteer (students):** create an account (name, email, password); after signing in they join an organization from a list. They see **Map explorer**, **Air quality** and the **Volunteer hub**. Emails are not verified and there is no automatic password reset.
+- **Organization (school/NGO):** register with a name + passcode (min 8 chars; 5 wrong attempts lock sign-in for 15 min). They see Map explorer, Air quality, Compare & rank, Climate trends, Scenario lab, the **Org portal** and the **Report** builder.
 
-Data lives in Supabase behind token-checked Postgres functions; the tables are closed to the public API, and each organization sees only its own volunteers' logs. Setup: copy `.env.example` to `.env.local` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` (the *publishable* key). Without them the app runs in a local demo mode. Logs are saved on-device first and uploaded when online. Locations are rounded to ~100 m. Anyone with an account can join any listed organization, so coordinators should remove people who shouldn't be on the roster; 5 wrong passwords lock an account for 15 minutes. There is no automatic passcode reset.
+Data lives in Supabase behind token-checked Postgres functions; the tables are closed to the public API, and each organization sees only its own volunteers' records. Setup: copy `.env.example` to `.env.local` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` (the *publishable* key). Without them the app runs in a local demo mode (saved on this device only, so no organization can verify anything). Anyone with an account can join any listed organization, so coordinators should remove people who shouldn't be on the roster.
 
-The **Report** follows the dashboard: weights, scope, the Scenario lab's current settings, and the organization's field logs (verified/awaiting).
+## Volunteer hub
+
+1. **Chat guide ("Hawa")** — a friendly assistant that asks a few questions (nickname, area, interests, indoor/outdoor, time per task) and suggests example volunteering tasks to accept or decline. Type or talk (browser speech, optional hands-free mode), in 18 languages. After a student accepts a task it asks whether they want more choices, and stops when they say they're done.
+2. **Find a mission** — filter by neighbourhood, indoor/outdoor, time available and focus (clean air or heat), then accept or skip the missions offered. Each mission's trigger comes from that neighbourhood's real data (live PM2.5, green space, heat risk).
+3. **My record** — accepted missions with their status, verified hours, and a **Download PDF** certificate once the organization has verified the work.
+
+Volunteers never submit or see the proof of work.
+
+## Organization portal
+
+- **Team** — join link, roster, and tiles counting volunteers, accepted/verified missions and neighbourhoods reached.
+- **Verification queue** — missions volunteers have accepted. When the work is done, the organization records the proof, confirms the hours and signs off, which issues the certificate. Entries can also be marked not verified, reopened or deleted.
+- **Impact summary** — verified hours, volunteers and neighbourhoods reached, by mission type and neighbourhood, with CSV/JSON export.
+- **Coverage** — map of units against heat risk using legacy field logs.
+
+The **Report** follows the dashboard: weights, scope, the Scenario lab's current settings and the organization's records.
+
+### How hours become a certificate
+
+Accepted missions are stored as ordinary records (kind `other`, tagged `volunteer-mission`) so the shared database needs no schema change. The organization's verification (signer, role, date, verified hours, proof) is stored in the record's review note. The certificate is a one-page "Certificate of Completion" PDF generated in the browser (`pdf-lib`).
 
 ## What the "AI" is — and is not
 
-The Heat Risk Index is a **transparent, explainable composite** (hazard + exposure + vulnerability), not a trained ML model. Insights are rule-generated from measured values; each shows evidence, confidence and method. No AI model specification was supplied, so none is claimed. See the in-app **Methodology** page for limits.
+- The **Heat Risk Index** is a transparent, explainable composite (hazard + exposure + vulnerability), not a trained ML model. Insights are rule-generated from measured values and show their evidence, confidence and method. See the in-app **Methodology** page.
+- The **chat guide is a rule-based script**, not an AI language model, and it says so. It matches keywords; it does not understand free text like a person.
+- **Voice**: speech output and recognition use the browser's own speech features (Chrome/Edge send audio to their speech service).
+- **Translation**: for non-English chats the student's messages and the guide's replies go through the free MyMemory translation service. The app warns users not to type personal details. Translation can be wrong.
+
+## Known limits
+
+- Air readings are a ~11 km model, so neighbouring units can share the same value, and the source tag can be wrong.
+- The proof of work is hidden in the app's screens, but it is stored in the review note, which the shared database's existing functions return to every member of an organization. Keeping it truly organization-only needs a database change (for example an organization-only table).
+- Certificate PDFs use standard fonts, so names in Urdu script appear as question marks. Use Latin spellings.
+- Task sites in the chat guide are examples.
+- Prototype: not medical advice.
 
 ## Layout
 
 ```
-scripts/pipeline/   data pipeline (stages: boundaries, worldpop, osm, climate, modis, build)
-public/data/        generated datasets served to the app
-src/lib/            risk model, scenario engine, insights, colours, data context
-src/components/     map, charts, dashboard panels, UI primitives
-src/pages/          Dashboard (the only page; tabs: map, compare, trends, scenarios, report, volunteer)
+scripts/pipeline/        data pipeline (stages: boundaries, worldpop, osm, climate, modis, build)
+public/data/             generated datasets served to the app
+src/lib/                 risk model, scenario engine, insights, air quality, volunteer chat engine,
+                         mission & verification logic (service.ts), certificate PDF, data context
+src/components/          map, charts, dashboard panels, air, volunteer, org, certificates, UI primitives
+src/pages/               Dashboard (tabs depend on role) and Login
 ```
