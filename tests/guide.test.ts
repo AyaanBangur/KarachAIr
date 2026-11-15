@@ -75,18 +75,23 @@ describe('privacy', () => {
   });
 });
 
-describe('trained activity classifier (fallback only)', () => {
-  it('understands wording the keyword rules do not know, and stays quiet on off-topic answers', async () => {
-    const { activityFromText } = await import('../src/lib/intent');
-    expect(activityFromText('tidy up the neighbourhood rubbish')).toBe(1);
-    expect(activityFromText('persuade drivers to stop idling')).toBe(2);
-    expect(activityFromText('help saplings grow')).toBe(3);
-    expect(activityFromText('give people face masks')).toBe(4);
-    expect(activityFromText('chart the pollution readings')).toBe(5);
-    expect(activityFromText('i like cricket')).toBeNull(); expect(activityFromText('what is for lunch')).toBeNull();
+describe("Hawa's trained activity model", () => {
+  it('has a clean, leak-free split and beats the baselines on test sentences it never saw', async () => {
+    const { allExamples, activityProbs } = await import('../src/lib/intent');
+    const ex = allExamples(), bases = (sp: string) => new Set(ex.filter((e) => e.split === sp).map((e) => e.base));
+    expect([...bases('test')].filter((b) => bases('train').has(b) || bases('val').has(b))).toEqual([]);
+    const test = ex.filter((e) => e.split === 'test'), acc = test.filter((e) => activityProbs(e.text)[0].label === e.label).length / test.length;
+    const majority = Math.max(...[0, 1, 2, 3, 4, 5].map((l) => test.filter((e) => e.label === l).length)) / test.length;
+    expect(acc).toBeGreaterThan(majority + 0.3); expect(acc).toBeGreaterThan(0.75);
+  });
+  it('returns a probability distribution', async () => {
+    const { activityProbs } = await import('../src/lib/intent'); const p = activityProbs('plant more trees'); expect(p.reduce((a, c) => a + c.p, 0)).toBeCloseTo(1, 5); expect(p[0].label).toBe(3);
+  });
+  it('keeps combinations from the rules, and says nothing for off-topic answers', async () => {
+    const { decideActivity } = await import('../src/lib/intent');
+    expect(decideActivity('trees and masks', [3, 4])).toEqual([3, 4]); expect(decideActivity('i like cricket', null)).toBeNull();
   });
   it('never overrides an answer the rules already understood', () => {
-    const s0 = respond(startChat(ctx()).state, 'Saddar', ctx()).state; const o = respond(s0, 'Plant trees & fight dust', ctx());
-    expect(o.state.profile.types).toEqual([3]);
+    const s0 = respond(startChat(ctx()).state, 'Saddar', ctx()).state; expect(respond(s0, 'Plant trees & fight dust', ctx()).state.profile.types).toEqual([3]);
   });
 });

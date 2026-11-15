@@ -1,0 +1,70 @@
+// The labelled dataset for Hawa's activity understanding: what a student might say when asked
+// "What would you like to do as a volunteer?". Labels: 1 clean up waste & burning, 2 traffic no-idling shifts,
+// 3 plant trees & fight dust, 4 health awareness & mask drives, 5 track air & heat data, 0 = not an activity answer.
+// Every sentence below was written by the team (nobody's real messages, so no personal data). The split into
+// train / validation / test is done per BASE sentence (see intent.ts), so no sentence and none of its typo or reworded
+// copies can appear on both sides of a split.
+export const CORPUS: Record<number, string[]> = {
+  1: [
+    'pick up rubbish', 'clean the streets', 'collect plastic bottles', 'stop people burning garbage', 'run a recycling drive', 'sort the waste at school', 'clean up litter near the school',
+    'report trash fires', 'separate dry and wet waste', 'clear the garbage dump', 'help with the kachra', 'put out burning rubbish', 'beach cleanup', 'plastic free campaign',
+    'set up bins for the neighbourhood', 'compost food scraps', 'stop open burning of waste', 'sweep and tidy the road', 'tackle the rubbish piles', 'tyre and garbage fires',
+    'tidy up the neighbourhood rubbish', 'stop trash being set on fire', 'clear plastic from the drain', 'sort recyclables at school', 'get rid of garbage heaps', 'pick up bottles and wrappers',
+    'burning of leaves and rubbish', 'make the lanes clean', 'collect bags of rubbish from the park', 'stop people dumping waste in the nullah', 'organise a clean-up day', 'recycle paper and cans',
+    'remove the smoke from burning trash', 'photograph illegal dumping', 'help the sanitation workers', 'less plastic in our school canteen', 'clean the playground of litter', 'stop smoke from burning garbage',
+    'talk to shopkeepers about throwing waste', 'waste collection volunteers', 'dispose of rubbish properly', 'clear the heaps of garbage near the market', 'reduce burning of waste in our area',
+    'make a recycling point', 'gather the plastic bags', 'litter picking', 'get the dirty street clean', 'teach kids not to litter', 'stop garbage fires near houses', 'waste free school drive',
+  ],
+  2: [
+    'ask drivers to switch off engines', 'cars waiting with engines on', 'school gate traffic', 'traffic jam fumes', 'reduce vehicle exhaust', 'carpooling for students', 'take the bus instead of cars',
+    'rickshaw smoke', 'no idling signs at the gate', 'count cars idling outside school', 'stop honking and idling', 'drop off and pick up queue', 'commuters using public transport',
+    'vehicle pollution on the road', 'tell parents to turn the engine off', 'stand by the road with a placard', 'exhaust from trucks', 'bike to school campaign', 'pickup point congestion',
+    'engines running while parked', 'ask parents to turn off car engines', 'fewer cars idling near the school', 'persuade drivers to stop idling', 'fumes from vehicles at drop off',
+    'share rides to school', 'public bus instead of private cars', 'tackle exhaust smoke from buses', 'hold a placard at the traffic signal', 'remind waiting drivers about their engines',
+    'survey how many cars wait with engines running', 'smoky buses on the main road', 'cut down car use around the school', 'a walk or cycle to school day', 'tell rickshaw drivers about clean fuel',
+    'ask taxi drivers to stop idling', 'engine off at the red light', 'help reduce the car queue at school', 'traffic exhaust near our school', 'cars blocking and polluting the gate',
+    'organise car sharing among parents', 'stand at the gate and talk to drivers', 'vehicles left running outside the mosque', 'old trucks making black smoke', 'reduce honking and fumes at pickup',
+    'encourage students to walk', 'make a poster for drivers about idling', 'monitor traffic fumes at rush hour', 'less congestion at school gates', 'tell drivers the air gets worse when engines idle',
+  ],
+  3: [
+    'plant some trees', 'grow saplings', 'greening the area', 'reduce dust on the road', 'water the young plants', 'neem and moringa trees', 'plant a hedge by the wall',
+    'make the neighbourhood greener', 'dusty ground needs plants', 'dig and plant seedlings', 'adopt a sapling', 'a small forest patch near school', 'trees give shade', 'stop sand blowing',
+    'park gardening', 'plant shrubs along the boundary', 'a dust barrier made of plants', 'watering roster for saplings', 'shade trees for the street', 'turn bare land green',
+    'plant more trees in our area', 'help saplings grow', 'make a green belt against dust', 'water the new plants after school', 'less dust through greenery', 'grow neem trees',
+    'put seedlings in the ground', 'shade trees on the road', 'plant trees along the school wall', 'cover the bare ground so dust stops blowing', 'start a tree nursery', 'care for the trees we planted',
+    'make our street cooler with trees', 'dig holes and plant', 'greenery to cut down the dust storms', 'a garden in the empty plot', 'plant a tree for each student', 'keep the saplings alive in summer',
+    'shade for the bus stop', 'grass and bushes on the open ground', 'mulch and water the plants', 'trees to cool down the neighbourhood', 'turn the dusty lot into a garden',
+    'plant trees near the highway', 'collect seeds and grow them', 'look after the school garden', 'green the school boundary', 'fight the dust with trees', 'more shade and more green',
+  ],
+  4: [
+    'give out face coverings', 'mask distribution', 'teach people about asthma', 'a health awareness talk', 'make posters about clean air', 'protect workers from heat', 'give water to outdoor workers',
+    'health cards for families', 'tell neighbours how to stay safe', 'inform people when the air is bad', 'ors and hydration drive', 'N95 packets for classmates', 'run an awareness session',
+    'share safety tips on social media', 'warn the elderly about smog', 'first aid and heat safety', 'lessons for younger kids about air', 'notices in urdu and english', 'help people with breathing problems',
+    'cooling advice for the community', 'give people face masks', 'talk to families about air health', 'poster about staying safe in smog', 'hydration and cooling help for labourers',
+    'run a safety awareness session', 'tell people to protect their lungs', 'share health tips', 'explain asthma risks to students', 'hand out masks at the bus stop', 'teach kids how to wear a mask',
+    'tell people to drink water in the heat', 'a talk about heatstroke signs', 'make a leaflet about air pollution and health', 'warn parents on bad air days', 'help old people stay cool',
+    'give water bottles to rickshaw drivers', 'explain what the air colours mean', 'spread the word about staying indoors on smoggy days', 'visit homes with safety information', 'awareness stall at the school fair',
+    'show people the air quality alert', 'protect children from the smog', 'whatsapp messages about heat safety', 'health and safety advice for street vendors', 'tell the community about the dangers of dust',
+    'teach first aid for heat exhaustion', 'make an urdu poster about masks', 'help neighbours with asthma', 'share the daily air status with families', 'mask and hydration packs for workers',
+  ],
+  5: [
+    'record temperature readings', 'collect measurements', 'use a thermometer', 'log pollution events', 'check the air sensor', 'analyse the numbers', 'make charts from readings',
+    'compare our readings with satellite data', 'a science project with data', 'track air quality over time', 'note down how hot it feels', 'maintain the sensor at school', 'survey and measure the shade',
+    'enter data in a spreadsheet', 'monitor dust levels', 'gather evidence for the report', 'photograph and geotag', 'write down daily readings', 'study the heat map', 'help the analysts with numbers',
+    'measure how hot the ground is', 'record the numbers daily', 'look after our air monitor', 'chart the pollution readings', 'collect temperature observations', 'help scientists with measurements',
+    'make a graph from our data', 'check readings on the thermometer', 'measure the surface temperature of the road', 'note down readings at noon', 'compare shaded and sunny spots with a thermometer',
+    'build a small dataset of our area', 'log what the sensor shows each day', 'calculate averages of the readings', 'plot the temperatures on a graph', 'collect data for the climate report',
+    'count how many trees are on our street and record it', 'keep a record of smoky days', 'test how accurate the satellite map is', 'use the air quality numbers for a school project', 'write up the findings from our readings',
+    'check the weather instrument', 'track which days are the hottest', 'data entry for the volunteer team', 'map the shaded areas', 'measure humidity and temperature', 'research how hot our neighbourhood gets',
+    'clean up the dataset', 'collect field observations', 'learn to read the air quality sensor',
+  ],
+  0: [
+    'i like football', 'what time is it', 'maybe later', 'i do not know', 'how are you', 'my favourite colour is blue', 'tell me a joke', 'what is the capital of france', 'i am hungry', 'good morning',
+    'where is the nearest shop', 'i have homework', 'can you sing', 'thanks a lot', 'see you tomorrow', 'what is your name', 'it is raining', 'nothing special', 'no idea', 'whatever you like',
+    'bahut acha', 'who made you', 'play some music', 'i am tired today', 'open the settings', 'tell me about you', 'sing a song for me', 'what do you do all day', 'how is the weather today', 'i want to go home',
+    'i like cricket', 'what is for lunch', 'maybe next week', 'tell me about yourself', 'is it going to rain', 'okay whatever', 'my phone is dead', 'how old are you', 'play a song', 'good night',
+    'i love pizza', 'when is the exam', 'can i get a day off', 'what should i wear', 'my cat is sleeping', 'show me a movie', 'who won the match', 'i need a new phone', 'what is two plus two',
+    'where do you live', 'do you like dogs', 'i am bored', 'let us chat about holidays', 'how do i get to the airport', 'what is the price of a phone', 'i want ice cream', 'tell me a story', 'it is so hot today', 'can we talk later',
+    'i forgot my homework', 'which team do you support', 'my brother is annoying', 'the bus is late again', 'i might go swimming', 'please repeat that',
+  ],
+};

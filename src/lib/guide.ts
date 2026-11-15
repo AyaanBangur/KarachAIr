@@ -54,7 +54,7 @@ export function haversine(lat1: number, lon1: number, lat2: number, lon2: number
 export const taskPos = (t: Task) => ({ lat: t.lat, lon: t.lon });
 const HIGH = 55;
 
-import { activityFromText } from './intent';
+import { decideActivity } from './intent';
 
 // ------------------------------------------------------------------ state
 export type Setting = 'Indoor' | 'Outdoor' | 'Any';
@@ -345,8 +345,9 @@ export function respond(state: GState, text: string, ctx: GCtx): Out {
   // explicit extraction (works for several answers in one sentence)
   // while a question is open, forgive typos and speech-to-text slips by matching against what that question expects
   const area = parseArea(raw) ?? (s.stage === 'area' ? parseAreaFuzzy(raw) : null); if (area) p.area = area;
-  // 1) keyword rules, 2) typo-correction, 3) a small trained classifier for wording the rules do not know
-  const types = parseTypes(raw, p.types) ?? (s.stage === 'types' ? parseTypes(correct(raw, TYPE_WORDS), p.types) ?? (activityFromText(raw) ? [activityFromText(raw)!] : null) : null); if (types) p.types = types;
+  // the trained model (Hawa's AI) decides when it is confident; the keyword rules, with typo-correction, are the fallback and handle combinations
+  const rulesTypes = parseTypes(raw, p.types) ?? (s.stage === 'types' ? parseTypes(correct(raw, TYPE_WORDS), p.types) : null);
+  const types = s.stage === 'types' ? decideActivity(raw, rulesTypes) : rulesTypes; if (types) p.types = types;
   const setting = parseSetting(raw) ?? (s.stage === 'setting' ? parseSetting(correct(raw, SETTING_WORDS)) : null); if (setting) p.setting = setting;
   const dist = parseDistance(raw); if (dist != null) p.radius = dist;
   let lead = ack(p, was, ctx);

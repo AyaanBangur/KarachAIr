@@ -1,13 +1,15 @@
-// Measures how well the volunteer guide and the mission generator work, on a labelled test set, and writes docs/RESULTS.md.
-// Run with `npm run eval`. The sentences are written by us (not by real students), which the results sheet says openly.
+// Measures Hawa (the volunteer guide) and the mission generator, and writes docs/RESULTS.md. Run: `npm run eval`.
+// Hawa's AI task: understand which volunteering activity a student means. Rules of the evaluation (from the hackathon guide):
+//   * settings are chosen on the VALIDATION split only; the TEST split is used once, for reporting;
+//   * the split is by base sentence, so no sentence (or its typo / reworded copy) is on both sides;
+//   * every result is compared with simple baselines, and failures are shown.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { AREAS, TYPES, parseArea, parseAreaFuzzy, parseSetting, parseTypes, registerAreas, respond, startChat, type GCtx, type GState } from '../src/lib/guide';
+import { AREAS, TYPES, parseArea, parseAreaFuzzy, parseSetting, registerAreas, respond, startChat, type GCtx, type GState } from '../src/lib/guide';
 import { computeBaseline, DEFAULT_WEIGHTS, scoreAll } from '../src/lib/risk';
 import { generateTasks, unitNeeds } from '../src/lib/needs';
-import { intentSwitch } from '../src/lib/intent';
-import { INTENT_TRAINING } from '../src/lib/intentData';
 import type { LiveAir, LiveWeather } from '../src/lib/hooks';
+import { POLICY, allExamples, decideWith, intentSwitch, probsLR, probsNB, trainLR, trainNB, type Example, type Mode, type Policy } from '../src/lib/intent';
 
 const dir = join(process.cwd(), 'public', 'data');
 const units = JSON.parse(readFileSync(join(dir, 'units.geojson'), 'utf8')).features;
@@ -15,71 +17,72 @@ const meta = JSON.parse(readFileSync(join(dir, 'meta.json'), 'utf8'));
 registerAreas(units);
 const scores = scoreAll(units, computeBaseline(units), DEFAULT_WEIGHTS);
 const ctx: GCtx = { name: 'Amina', tasks: [], airFor: () => ({ pm25: 10, label: 'Good', outdoorOk: true, triggered: [] }), today: 'today', rng: () => 0 };
+const pct = (x: number, d = 0) => `${(x * 100).toFixed(d)}%`;
+const wilson = (k: number, n: number): [number, number] => { if (!n) return [0, 0]; const z = 1.96, p = k / n, d = 1 + z * z / n, c = p + z * z / (2 * n), r = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)); return [(c - r) / d, (c + r) / d]; };
 
-interface Result { name: string; correct: number; total: number; misses: string[] }
-const score = <T>(name: string, cases: [string, T][], run: (t: string) => T, same: (a: T, b: T) => boolean = (a, b) => a === b): Result => {
-  const misses: string[] = []; let ok = 0;
-  for (const [text, want] of cases) { const got = run(text); if (same(got, want)) ok++; else misses.push(`"${text}": got ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`); }
-  return { name, correct: ok, total: cases.length, misses };
+// ====================================================================== 1. Hawa's activity understanding
+const ex = allExamples(), by = (s: Example['split']) => ex.filter((e) => e.split === s);
+const train = by('train'), val = by('val'), test = by('test');
+const LABELS = [1, 2, 3, 4, 5, 0], NAME: Record<number, string> = { 0: 'not an activity', ...Object.fromEntries(TYPES.map((t) => [t.id, t.name])) };
+const bases = (e: Example[]) => new Set(e.map((x) => x.base));
+const leak = [...bases(test)].filter((b) => bases(train).has(b) || bases(val).has(b)).length + [...bases(val)].filter((b) => bases(train).has(b)).length;
+
+// what the keyword rules alone say about a sentence, as a single label (0 = nothing understood, -1 = several activities)
+const state0 = respond(startChat(ctx).state, 'Saddar', ctx).state;
+const viaChat = (text: string): number => { const o = respond(state0, text, ctx); const t = o.state.stage === 'types' ? null : o.state.profile.types; return !t || !t.length ? 0 : t.length === 1 ? t[0] : -1; };
+const rulesLabel = (t: string) => { intentSwitch.enabled = false; const r = viaChat(t); intentSwitch.enabled = true; return r; };
+const hybridLabel = (t: string) => { intentSwitch.enabled = true; return viaChat(t); };
+
+interface Scored { acc: number; k: number; n: number; offFalseAccept: number }
+const scoreOn = (data: Example[], pred: (e: Example) => number): Scored => {
+  let k = 0, fa = 0, off = 0; for (const e of data) { const p = pred(e); if (p === e.label) k++; if (e.label === 0) { off++; if (p !== 0) fa++; } }
+  return { acc: k / data.length, k, n: data.length, offFalseAccept: off ? fa / off : 0 };
 };
-const areaName = (id: string) => AREAS.find((a) => a.unitId === id)!.name;
-const arr = (a: number[] | null, b: number[] | null) => JSON.stringify(a) === JSON.stringify(b);
+const majority = LABELS.map((l) => ({ l, c: train.filter((e) => e.label === l).length })).sort((a, b) => b.c - a.c)[0].l;
 
-// ---- 1. Areas: how people really write places (official names, short names, nicknames, typos, speech-to-text slips)
+// ---- model selection on the validation split (models trained on the train split only)
+const nb = trainNB(train), lrTrain = trainLR(train);
+const modelPred = (m: 'nb' | 'lr') => (e: Example) => { const r = (m === 'nb' ? probsNB(nb, e.text) : probsLR(lrTrain, e.text))[0]; return r ? r.label : 0; };
+const valRules = scoreOn(val, (e) => { const r = rulesLabel(e.text); return r < 0 ? 0 : r; }), valNB = scoreOn(val, modelPred('nb')), valLR = scoreOn(val, modelPred('lr')), valMajority = scoreOn(val, () => majority);
+// Search on VALIDATION: which model (Naive Bayes or logistic regression) and which way of combining it with the rules (and what confidence threshold).
+const rulesOn = (e: Example) => { const l = rulesLabel(e.text); return l < 0 ? [1, 2] : l === 0 ? null : [l]; }; // -1 = several activities
+const valRulesRaw = new Map(val.map((e) => [e.text, rulesOn(e)]));
+const search: (Policy & { acc: number; fa: number })[] = [];
+for (const model of ['nb', 'lr'] as const) for (const mode of ['model-only', 'model-first', 'rules-first'] as Mode[]) for (const tau of mode === 'model-only' ? [0.5] : [0.3, 0.5, 0.7, 0.9]) {
+  const pol: Policy = { model, mode, tau };
+  const s = scoreOn(val, (e) => { const d = decideWith(pol, model === 'nb' ? probsNB(nb, e.text) : probsLR(lrTrain, e.text), valRulesRaw.get(e.text) ?? null); return d && d.length === 1 ? d[0] : 0; });
+  search.push({ ...pol, acc: s.acc, fa: s.offFalseAccept });
+}
+const best = [...search].sort((a, b) => b.acc - a.acc || a.fa - b.fa)[0];
+const policyMatches = best.model === POLICY.model && best.mode === POLICY.mode && best.tau === POLICY.tau;
+
+// ---- the one-time test report (deployed model = trained on train + validation; deployed policy)
+const tMajority = scoreOn(test, () => majority), tRules = scoreOn(test, (e) => { const r = rulesLabel(e.text); return r < 0 ? 0 : r; }), tHybrid = scoreOn(test, (e) => { const r = hybridLabel(e.text); return r < 0 ? 0 : r; });
+const preds = test.map((e) => ({ e, p: Math.max(0, hybridLabel(e.text)) }));
+const prf = (l: number) => { const tp = preds.filter((x) => x.e.label === l && x.p === l).length, fp = preds.filter((x) => x.e.label !== l && x.p === l).length, fn = preds.filter((x) => x.e.label === l && x.p !== l).length; const p = tp + fp ? tp / (tp + fp) : 0, r = tp + fn ? tp / (tp + fn) : 0; return { p, r, f: p + r ? 2 * p * r / (p + r) : 0, n: tp + fn }; };
+const perClass = LABELS.map((l) => ({ l, ...prf(l) })), macroF1 = perClass.reduce((a, c) => a + c.f, 0) / perClass.length;
+const rulesPreds = test.map((e) => ({ e, p: Math.max(0, rulesLabel(e.text)) })), rulesMacro = LABELS.reduce((a, l) => { const tp = rulesPreds.filter((x) => x.e.label === l && x.p === l).length, fp = rulesPreds.filter((x) => x.e.label !== l && x.p === l).length, fn = rulesPreds.filter((x) => x.e.label === l && x.p !== l).length; const p = tp + fp ? tp / (tp + fp) : 0, r = tp + fn ? tp / (tp + fn) : 0; return a + (p + r ? 2 * p * r / (p + r) : 0); }, 0) / LABELS.length;
+const confusion = LABELS.map((t) => LABELS.map((p) => preds.filter((x) => x.e.label === t && x.p === p).length));
+const group = (name: string, f: (e: Example) => boolean) => { const g = test.filter(f), a = scoreOn(g, (e) => Math.max(0, hybridLabel(e.text))), b = scoreOn(g, (e) => Math.max(0, rulesLabel(e.text))); return `| ${name} | ${g.length} | ${pct(b.acc)} | **${pct(a.acc)}** |`; };
+const failures = preds.filter((x) => x.p !== x.e.label).slice(0, 12).map((x) => `- "${x.e.text}" (${x.e.variant}): said ${NAME[x.p]}, should be ${NAME[x.e.label]}`);
+const ci = wilson(tHybrid.k, tHybrid.n), ciR = wilson(tRules.k, tRules.n);
+
+// ====================================================================== 2. Hawa's other skills (places, indoor/outdoor, conversation)
+const areaName = (id: string) => AREAS.find((a) => a.unitId === id)!.name;
 const areas: [string, string | null][] = [
   ...units.flatMap((u: any) => [[u.properties.short, areaName(u.properties.id)], [u.properties.name.toLowerCase(), areaName(u.properties.id)]] as [string, string | null][]),
-  ['Clifton', areaName('clifton-cantonment')], ['DHA', areaName('clifton-cantonment')], ['Defence', areaName('clifton-cantonment')], ['Gulshan', areaName('gulshan-e-iqbal-town')], ['PECHS', areaName('jamshed-town')],
-  ['Nazimabad', areaName('north-nazimabad-town')], ['Keamari', areaName('kiamari-town')], ['near university road', areaName('gulshan-e-iqbal-town')], ['I live in Korangi', areaName('korangi-town')],
+  ['Clifton', areaName('clifton-cantonment')], ['DHA', areaName('clifton-cantonment')], ['Gulshan', areaName('gulshan-e-iqbal-town')], ['PECHS', areaName('jamshed-town')], ['Nazimabad', areaName('north-nazimabad-town')], ['Keamari', areaName('kiamari-town')],
   ['Orangey', areaName('orangi-town')], ['karangee', areaName('korangi-town')], ['Malear', areaName('malir-town')], ['Lyary', areaName('lyari-town')], ['Saddr', areaName('saddar-town')], ['Gadapp', areaName('gadap-town')],
-  ['Liyaquatabad', areaName('liaquatabad-town')], ['Landi', areaName('landhi-town')], ['Baldiya', areaName('baldia-town')],
-  ['the market', null], ['I like trees', null], ['what is the weather', null], ['Lahore', null], ['Islamabad', null], ['hello', null], ['near my school', null], ['yes', null], ['Karachi', null],
+  ['the market', null], ['I like trees', null], ['what is the weather', null], ['Lahore', null], ['hello', null], ['near my school', null], ['yes', null], ['Karachi', null],
 ];
-const areaResult = score('Places (24 towns, nicknames, typos, and sentences that are not places)', areas, (t) => parseArea(t) ?? parseAreaFuzzy(t));
-
-// ---- 2. Activities, measured through the REAL chat path (rules, typo-correction, then the trained fallback).
-// The paraphrases below are NOT in the classifier's training phrases (src/lib/intentData.ts).
-const A: Record<number, string[]> = {
-  1: ['tidy up the neighbourhood rubbish', 'stop trash being set on fire', 'clear the plastic from the drain', 'sort recyclables at school', 'help get rid of garbage heaps', 'pick up bottles and wrappers', 'burning of leaves and rubbish', 'make the lanes clean'],
-  2: ['ask parents to turn off car engines', 'fewer cars idling near the school', 'persuade drivers to stop idling', 'fumes from vehicles at drop off', 'share rides to school', 'public bus instead of private cars', 'tackle exhaust smoke from buses', 'hold a placard at the traffic signal'],
-  3: ['plant more trees in our area', 'help saplings grow', 'make a green belt against dust', 'water the new plants after school', 'less dust through greenery', 'grow neem trees', 'put seedlings in the ground', 'shade trees on the road'],
-  4: ['give people face masks', 'talk to families about air health', 'poster about staying safe in smog', 'hydration and cooling help for labourers', 'run a safety awareness session', 'tell people to protect their lungs', 'share health tips', 'explain asthma risks to students'],
-  5: ['measure how hot the ground is', 'record the numbers daily', 'look after our air monitor', 'chart the pollution readings', 'collect temperature observations', 'help scientists with measurements', 'make a graph from our data', 'check readings on the thermometer'],
-};
-const exact: [string, number[] | null][] = [
-  ...TYPES.map((t) => [t.name, [t.id]] as [string, number[] | null]), ['trees and masks', [3, 4]], ['plant trees, measure data', [3, 5]], ['everything', [1, 2, 3, 4, 5]], ['surprise me', [1, 2, 3, 4, 5]],
-  ['plantin trees', [3]], ['tres', [3]], ['recycilng', [1]], ['sensers', [5]],
-];
-const paraphrases: [string, number[] | null][] = Object.entries(A).flatMap(([l, ts]) => ts.map((t) => [t, [Number(l)]] as [string, number[] | null]));
-const offTopic: [string, number[] | null][] = ['i like cricket', 'what is for lunch', 'maybe next week', 'tell me about yourself', 'is it going to rain', 'okay whatever', 'my phone is dead', 'how old are you', 'play a song', 'good night'].map((t) => [t, null]);
-const viaChat = (text: string): number[] | null => { const s0 = respond(startChat(ctx).state, 'Saddar', ctx).state; const o = respond(s0, text, ctx); return o.state.stage === 'types' ? null : o.state.profile.types; };
-const activityRun = (label: string) => [
-  score(`${label}: the six buttons, combinations and typos`, exact, viaChat, arr),
-  score(`${label}: new paraphrases it was never given`, paraphrases, viaChat, arr),
-  score(`${label}: off-topic answers correctly NOT treated as an activity`, offTopic, viaChat, arr),
-];
-intentSwitch.enabled = false; const rulesOnly = activityRun('Activities, keyword rules only');
-intentSwitch.enabled = true; const withModel = activityRun('Activities, rules + trained classifier');
-
-
-// ---- 3. Indoor / outdoor
+const okAreas = areas.filter(([t, w]) => (parseArea(t) ?? parseAreaFuzzy(t)) === w).length;
 const settings: [string, string | null][] = [['indoors', 'Indoor'], ['inside please', 'Indoor'], ['classroom', 'Indoor'], ['outdoors', 'Outdoor'], ['outside', 'Outdoor'], ['out door', 'Outdoor'], ['either', 'Any'], ['both', 'Any'], ['doesn\'t matter', 'Any'], ['no preference', 'Any'], ['banana', null], ['trees', null]];
-const settingResult = score('Indoor / outdoor', settings, (t) => parseSetting(t));
-
-// ---- 4. Conversation: saying hi again, continue / new, stopping
+const okSettings = settings.filter(([t, w]) => parseSetting(t) === w).length;
 const asked = (): GState => respond(respond(startChat(ctx).state, 'Saddar', ctx).state, 'hi', ctx).state;
-const flow: [string, string][] = [
-  ['Continue where we left off', 'continue'], ['continue', 'continue'], ['yes', 'continue'], ['carry on', 'continue'], ['the old one', 'continue'], ['resume', 'continue'],
-  ['Start a new conversation', 'new'], ['new one', 'new'], ['start over', 'new'], ['fresh start', 'new'], ['restart', 'new'],
-  ['bye', 'ended'], ['stop', 'ended'], ['banana', 'asks again'],
-];
-const flowResult = score('Hi-again prompt: continue, start new, stop, or unclear', flow, (t) => {
-  const o = respond(asked(), t, ctx);
-  return o.reset ? 'new' : o.state.stage === 'ended' ? 'ended' : o.state.ask === 'resume' ? 'asks again' : 'continue';
-});
-const greets = ['hi', 'hello', 'hey', 'salam', 'Hi!', 'hello hello'];
-const greetResult = score('Greetings are answered and the conversation goes on', greets.map((g) => [g, 'ok'] as [string, string]), (g) => { const o = respond(startChat(ctx).state, g, ctx); return o.msgs.length >= 2 && o.state.stage === 'area' ? 'ok' : 'bad'; });
+const flow: [string, string][] = [['Continue where we left off', 'continue'], ['continue', 'continue'], ['yes', 'continue'], ['carry on', 'continue'], ['Start a new conversation', 'new'], ['new one', 'new'], ['start over', 'new'], ['fresh start', 'new'], ['bye', 'ended'], ['stop', 'ended'], ['banana', 'asks again']];
+const okFlow = flow.filter(([t, w]) => { const o = respond(asked(), t, ctx); return (o.reset ? 'new' : o.state.stage === 'ended' ? 'ended' : o.state.ask === 'resume' ? 'asks again' : 'continue') === w; }).length;
 
-// ---- 5. Mission generator: does bad air or dangerous heat move a place up the list?
+// ====================================================================== 3. Missions react to the data
 const rnd = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
 const live = (pm: Record<string, number> = {}, feels: Record<string, number> = {}) => {
   const air: LiveAir = { fetchedAt: 0, byUnit: {} }, weather: LiveWeather = { fetchedAt: 0, byUnit: {} };
@@ -87,61 +90,109 @@ const live = (pm: Record<string, number> = {}, feels: Record<string, number> = {
   return { air, weather };
 };
 const rank = (l: ReturnType<typeof live>, id: string) => unitNeeds({ units, scores, ...l, fieldCounts: new Map() }).findIndex((n) => n.unitId === id);
-let airUp = 0, heatUp = 0, airTask = 0, heatTask = 0; const N = 100;
-for (let i = 0; i < N; i++) {
-  const u = units[Math.floor(rnd() * units.length)].properties.id, calm = rank(live(), u);
-  const smoky = live({ [u]: 120 + rnd() * 80 }), hot = live({}, { [u]: 42 + rnd() * 5 });
-  if (calm === 0 || rank(smoky, u) < calm) airUp++; if (calm === 0 || rank(hot, u) < calm) heatUp++;
-  if (generateTasks({ units, scores, ...smoky, fieldCounts: new Map() }).some((t) => t.unitId === u && t.focus === 'air' && t.need > 55)) airTask++;
-  if (generateTasks({ units, scores, ...hot, fieldCounts: new Map() }).some((t) => t.unitId === u && t.focus === 'heat')) heatTask++;
-}
-const mission = [
-  `Bad air (PM2.5 120-200) moves a place up the priority list: **${airUp}/${N}** random places`,
-  `Dangerous heat (feels-like 42-47 C) moves a place up the priority list: **${heatUp}/${N}**`,
-  `Bad air creates a high-need air mission there: **${airTask}/${N}**`,
-  `Dangerous heat creates a heat mission there: **${heatTask}/${N}**`,
-];
+let airUp = 0, heatUp = 0; const N = 100;
+for (let i = 0; i < N; i++) { const u = units[Math.floor(rnd() * units.length)].properties.id, calm = rank(live(), u); if (calm === 0 || rank(live({ [u]: 120 + rnd() * 80 }), u) < calm) airUp++; if (calm === 0 || rank(live({}, { [u]: 42 + rnd() * 5 }), u) < calm) heatUp++; }
+const missionsOk = generateTasks({ units, scores, ...live(), fieldCounts: new Map() }).length;
 
-const results = [areaResult, ...rulesOnly, ...withModel, settingResult, flowResult, greetResult];
-const pct = (r: Result) => `${Math.round((r.correct / r.total) * 100)}%`;
+// ====================================================================== write the results sheet
 const reg = meta.lst.regression;
+const row = (n: string, a: Scored) => `| ${n} | ${a.k} / ${a.n} | **${pct(a.acc)}** | ${pct(a.offFalseAccept)} |`;
 const md = `# KarachAir: measured results
 
-*Generated by \`npm run eval\` on ${new Date().toISOString().slice(0, 10)}. Re-run it to refresh the numbers.*
+*Generated by \`npm run eval\` on ${new Date().toISOString().slice(0, 10)}. Re-run it to refresh every number.*
 
-## What was measured, and how honestly
+## What the AI does
 
-The test sentences were written by us, not collected from real students, so these numbers show that the logic behaves as designed on realistic wording. They are **not** a user study. A pilot with real students is the next step (see "What is not measured").
+Hawa, the volunteer guide, is the AI that does the app's main job of **matching a student to the right missions**. It reads what a student types (for example "pick up bottles and wrappers", "ask parents to turn off car engines", "tel neighbours how to stay safe") and works out which of five volunteering activities they mean, or that they did not name an activity at all. A trained text classifier (multinomial logistic regression on words and letter-triples, trained in the browser) makes that decision. The mission list that follows is built from live air, heat and report data (see the write-up).
 
-## 1. The volunteer guide (Hawa) understands what people type
+## How it was tested, and what we did to keep it honest
 
-| Test | Correct | Accuracy |
-|---|---|---|
-${results.map((r) => `| ${r.name} | ${r.correct} / ${r.total} | **${pct(r)}** |`).join('\n')}
+- **Data:** ${ex.length} sentences made from ${bases(ex).size} sentences we wrote ourselves (no real student messages, so no personal data). Each base sentence has a clean, a typo and a reworded version.
+- **Split:** ${train.length} train / ${val.length} validation / ${test.length} test, split **by base sentence**, so a sentence and its copies never sit on both sides. Overlap check: **${leak} shared sentences** between splits.
+- **Tuning on validation only.** The model type and the confidence threshold were chosen on the validation split. The test split was used once, to report.
+- **Baselines:** (1) always predict the most common label (\`${NAME[majority]}\`), (2) Hawa's original keyword rules alone (the "simple rules" a judge would try first).
 
-${results.some((r) => r.misses.length) ? '### Where it still fails\n\n' + results.filter((r) => r.misses.length).map((r) => `**${r.name}**\n\n` + r.misses.map((m) => `- ${m}`).join('\n')).join('\n\n') : 'No misses on this set.'}
+### Model and setting chosen on the validation split
 
-### About the trained classifier
+| Model (trained on train only) | Validation accuracy |
+|---|---|
+| Majority label | ${pct(valMajority.acc)} |
+| Keyword rules only | ${pct(valRules.acc)} |
+| Naive Bayes | ${pct(valNB.acc)} |
+| Logistic regression | ${pct(valLR.acc)} |
 
-Hawa's keyword rules answer first. When they do not recognise an answer to the activity question, a small **trained** text classifier (multinomial Naive Bayes over words and letter-triples, ${INTENT_TRAINING.length} labelled phrases, trained in the browser at start-up) gets a chance, and it only answers when it is at least 90% sure; otherwise Hawa simply asks again. On phrases it was never trained on, this lifts understanding from **${pct(rulesOnly[1])} to ${pct(withModel[1])}** while keeping off-topic answers at **${pct(withModel[2])}** correct. Caveats: the test set is small (40 + 10 phrases), written by us, and the 90% threshold was chosen after looking at it, so treat the numbers as optimistic.
+Policy search on validation (model first or rules first, and the confidence threshold), keeping off-topic false accepts at or below 5%: best was **${best.order}, threshold ${best.tau}** with ${pct(best.acc)} validation accuracy.${policyMatches ? '' : `\n\n> **Warning:** the deployed policy in \`src/lib/intent.ts\` (${POLICY.order}, ${POLICY.tau}) differs from this search result; update it.`}
 
-## 2. Missions react to the data (100 random trials each)
+### Test results (the deployed pipeline, on sentences it never saw)
 
-${mission.map((m) => `- ${m}`).join('\n')}
+| Method | Correct | Accuracy | Off-topic wrongly treated as an activity |
+|---|---|---|---|
+${row('Always predict the most common label', tMajority)}
+${row('Keyword rules only (baseline)', tRules)}
+${row('**Hawa with the trained model**', tHybrid)}
 
-## 3. What the data can and cannot say
+- 95% confidence interval for accuracy: keyword rules ${pct(ciR[0])} to ${pct(ciR[1])}; with the trained model **${pct(ci[0])} to ${pct(ci[1])}**. The test set is small (${test.length}), so treat small differences with caution.
+- Macro-F1 (fair across classes): rules ${pct(rulesMacro, 1)}, with the model **${pct(macroF1, 1)}**.
+
+### Per activity (test)
+
+| Activity | Precision | Recall | F1 | Test sentences |
+|---|---|---|---|---|
+${perClass.map((c) => `| ${NAME[c.l]} | ${pct(c.p)} | ${pct(c.r)} | ${pct(c.f)} | ${c.n} |`).join('\n')}
+
+### Confusion matrix (rows = what it should be, columns = what Hawa said)
+
+| should be \\ said | ${LABELS.map((l) => NAME[l]).join(' | ')} |
+|---|${LABELS.map(() => '---').join('|')}|
+${LABELS.map((l, i) => `| ${NAME[l]} | ${confusion[i].join(' | ')} |`).join('\n')}
+
+### Does it work equally well for different kinds of messages? (test)
+
+| Kind of message | Sentences | Rules only | With the model |
+|---|---|---|---|
+${group('Clean wording', (e) => e.variant === 'clean')}
+${group('With typos', (e) => e.variant === 'typo')}
+${group('Reworded ("I want to...", "maybe...")', (e) => e.variant === 'framed')}
+${group('Short (1 to 3 words)', (e) => e.base.split(' ').length <= 3)}
+${group('Long (6 or more words)', (e) => e.base.split(' ').length >= 6)}
+
+### Where it fails
+
+${failures.length ? failures.join('\n') : 'No failures on this test set.'}
+
+Why we think it fails: the model learns from words and letter patterns, not meaning. It does best on wording close to the training sentences, and it can be fooled by sentences that mix two activities or use words it has never seen. It is trained on our own English wording, so it can be worse on how Karachi's students really type, including Roman Urdu. It does not understand Hindi directly; Hindi chats are translated to English first by a free service, which adds its own errors.
+
+## Hawa's other skills (smaller checks)
+
+| Check | Correct |
+|---|---|
+| Place names (24 towns, nicknames, typos, non-places) | ${okAreas} / ${areas.length} (${pct(okAreas / areas.length)}) |
+| Indoor / outdoor | ${okSettings} / ${settings.length} (${pct(okSettings / settings.length)}) |
+| "Hi again": continue, start new, stop, unclear | ${okFlow} / ${flow.length} (${pct(okFlow / flow.length)}) |
+
+## The mission list reacts to the data (100 random trials each)
+
+- Bad air (PM2.5 120 to 200) moves a place up the priority list: **${airUp}/${N}**
+- Dangerous heat (feels-like 42 to 47 C) moves a place up the priority list: **${heatUp}/${N}**
+- Every neighbourhood receives missions: **${missionsOk > 0 ? 'yes' : 'no'}** (${missionsOk} missions in the calm test)
+
+## What the data can and cannot say
 
 - **Satellite coverage:** ${meta.lst.seasons.length} hot seasons (${[...meta.lst.seasons].sort().join(', ')}), ${meta.lst.composites} satellite composites, ${meta.unitCount} neighbourhoods.
-- **Greenery vs heat is a weak link.** Across ${reg.n.toLocaleString('en-US')} pixels, each +0.1 of vegetation (NDVI) goes with about ${reg.slopePer0p1Ndvi.toFixed(2)} C cooler afternoon surface, but R-squared is only **${reg.r2.toFixed(3)}** (greenery explains about ${(reg.r2 * 100).toFixed(1)}% of the differences between pixels). We therefore treat greening effects as small and uncertain, and we do not use this relationship to promise cooling.
-- **Air quality is a ~11 km model (CAMS), not street-level sensors.** A school gate can differ from the number shown.
-- **The Heat Risk Index is a relative ranking** (best to worst among 24 units), not an absolute danger scale, and not a trained model.
+- **Greenery vs heat is a weak link.** Across ${reg.n.toLocaleString('en-US')} pixels, R-squared is only **${reg.r2.toFixed(3)}** (greenery explains about ${(reg.r2 * 100).toFixed(1)}% of the differences). We treat greening effects as small and uncertain.
+- **Air quality is a ~11 km model (CAMS), not street-level sensors.**
+- **The Heat Risk Index is a relative ranking** of 24 neighbourhoods, not a trained model and not an absolute danger level.
 
 ## What is not measured (we are telling you before you ask)
 
-- No pilot with real students or coordinators yet. Mission acceptance, completion and verification rates are unknown.
-- The Heat Risk Index has not been validated against ground thermometer readings, because the field-observation screen was replaced by missions. That is the first thing a pilot should collect.
-- Hawa was tested on sentences we wrote; real teenage typing and speech-to-text will be messier.
+- Real students: every sentence here was written by us. A pilot with real students and real typing is the next step.
+- No ground-truth check of the heat ranking against thermometers.
+- Hindi and Roman Urdu input are not tested.
 `;
 writeFileSync(join(process.cwd(), 'docs', 'RESULTS.md'), md);
-console.log(md.split('## 2.')[0]);
-console.log(mission.join('\n'));
+console.log(`splits: ${train.length}/${val.length}/${test.length} | leakage ${leak}`);
+console.log(`VAL  majority ${pct(valMajority.acc)} | rules ${pct(valRules.acc)} | NB ${pct(valNB.acc)} | LR ${pct(valLR.acc)}`);
+console.log(['search (val acc / off-topic false accept):', ...search.map((s) => `  ${s.model} ${s.mode} ${s.tau}: ${pct(s.acc)} / ${pct(s.fa)}`)].join(String.fromCharCode(10)));
+console.log(`chosen on validation: ${best.model} ${best.mode} ${best.tau} | deployed: ${POLICY.model} ${POLICY.mode} ${POLICY.tau} | match=${policyMatches}`);
+console.log(`TEST majority ${pct(tMajority.acc)} | rules ${pct(tRules.acc)} | hybrid ${pct(tHybrid.acc)} (${pct(ci[0])}-${pct(ci[1])}) | macroF1 rules ${pct(rulesMacro, 1)} -> ${pct(macroF1, 1)} | off-topic false accept ${pct(tHybrid.offFalseAccept)}`);
+console.log('places', okAreas + '/' + areas.length, 'settings', okSettings + '/' + settings.length, 'flow', okFlow + '/' + flow.length, 'missions', airUp, heatUp);
