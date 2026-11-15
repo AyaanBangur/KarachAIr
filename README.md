@@ -43,6 +43,10 @@ Everything sits behind a sign-in with two roles (`#/login`):
 
 Data lives in Supabase behind token-checked Postgres functions; the tables are closed to the public API, and each organization sees only its own volunteers' records. Setup: copy `.env.example` to `.env.local` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_KEY` (the *publishable* key). Without them the app runs in a local demo mode (saved on this device only, so no organization can verify anything). Anyone with an account can join any listed organization, so coordinators should remove people who shouldn't be on the roster.
 
+## Volunteer profile photo (webcam)
+
+After signing up, a volunteer takes a profile photo with the device webcam (`getUserMedia`). It shows as a round avatar in the top right next to Sign out, and pressing it retakes the photo. **Privacy first:** the photo is kept only in the browser tab's temporary session storage, is never uploaded to a server or database, and is deleted on sign out or when the tab closes. If the camera is blocked or missing, the volunteer can continue without a photo and an initial is shown instead. The camera needs a secure page (https or localhost).
+
 ## Volunteer hub
 
 1. **Chat guide ("Hawa")** — a friendly assistant that asks a few questions (area, interests, indoor/outdoor; every example task is 2 hours) and suggests volunteering tasks generated from live data to accept or decline. Type or talk (browser speech, optional hands-free mode), in 18 languages. After a student accepts a task it asks whether they want more choices, and stops when they say they're done.
