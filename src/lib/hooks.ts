@@ -3,7 +3,7 @@ import type { UnitFeature } from './types';
 
 // ------------------------------------------------------------------ hash router
 // #/login · #/login/volunteer · #/login/organization · #/dashboard/<tab>?unit=<id>
-export const TAB_IDS = ['explore', 'compare', 'trends', 'scenarios', 'report', 'volunteer', 'org'] as const;
+export const TAB_IDS = ['explore', 'compare', 'trends', 'scenarios', 'air', 'report', 'volunteer', 'org'] as const;
 export interface Route { page: 'dashboard' | 'login'; tab: string; unit: string | null }
 export function parseHash(h: string): Route {
   const [path, query = ''] = h.replace(/^#\/?/, '').split('?');
@@ -90,6 +90,41 @@ export function useLiveWeather(units: UnitFeature[]) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [units.length]);
   return state;
+}
+
+// ------------------------------------------------------------------ live air quality (Open-Meteo / CAMS model, keyless, CORS-enabled)
+export interface LiveAirReading { pm25: number; pm10: number; no2: number | null; aqi: number | null; time: string }
+export interface LiveAir { byUnit: Record<string, LiveAirReading>; fetchedAt: number }
+export type AirState = { status: 'loading' | 'ok' | 'error'; data: LiveAir | null; reload: () => void };
+
+export function useLiveAir(units: UnitFeature[]): AirState {
+  const [state, setState] = useState<Omit<AirState, 'reload'>>({ status: 'loading', data: null });
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    setState((s) => ({ ...s, status: 'loading' }));
+    const lat = units.map((u) => u.properties.centroid[1].toFixed(3)).join(',');
+    const lon = units.map((u) => u.properties.centroid[0].toFixed(3)).join(',');
+    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm2_5,pm10,nitrogen_dioxide,us_aqi&timezone=Asia%2FKarachi`;
+    fetch(url, { signal: ctrl.signal })
+      .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then((json) => {
+        const arr = Array.isArray(json) ? json : [json];
+        const byUnit: LiveAir['byUnit'] = {};
+        arr.forEach((loc, i) => {
+          const c = loc?.current;
+          if (c && typeof c.pm2_5 === 'number' && typeof c.pm10 === 'number') {
+            byUnit[units[i].properties.id] = { pm25: c.pm2_5, pm10: c.pm10, no2: typeof c.nitrogen_dioxide === 'number' ? c.nitrogen_dioxide : null, aqi: typeof c.us_aqi === 'number' ? c.us_aqi : null, time: c.time };
+          }
+        });
+        if (!Object.keys(byUnit).length) throw new Error('no data');
+        setState({ status: 'ok', data: { byUnit, fetchedAt: Date.now() } });
+      })
+      .catch((e) => { if (e.name !== 'AbortError') setState({ status: 'error', data: null }); });
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [units.length, tick]);
+  return { ...state, reload: () => setTick((t) => t + 1) };
 }
 
 // ------------------------------------------------------------------ small utilities

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useTerra } from '../lib/data';
-import { hrefFor, useLiveWeather, useLocalState, type Go, type Route } from '../lib/hooks';
+import { hrefFor, useLiveAir, useLiveWeather, useLocalState, type Go, type Route } from '../lib/hooks';
 import { ReportTab } from '../components/dashboard/ReportTab';
 import { VolunteerTab } from '../components/volunteer/VolunteerTab';
 import { MapExplorer } from '../components/dashboard/MapExplorer';
@@ -9,17 +9,19 @@ import { CityOverview } from '../components/dashboard/CityOverview';
 import { CompareTab } from '../components/dashboard/CompareTab';
 import { TrendsTab } from '../components/dashboard/TrendsTab';
 import { ScenarioLab } from '../components/dashboard/ScenarioLab';
-import { Compare, Doc, MapIcon, Satellite, Sliders, Sparkle, Trend } from '../components/icons';
+import { AirTab } from '../components/air/AirTab';
+import { Compare, Doc, Droplet, MapIcon, Satellite, Sliders, Sparkle, Trend } from '../components/icons';
 import { useAuth } from '../lib/auth';
 import { OrgConsole } from '../components/org/OrgConsole';
 
 const ALL_TABS = [
   { id: 'explore', label: 'Map explorer', icon: MapIcon, roles: ['org', 'volunteer'] },
-  { id: 'compare', label: 'Compare & rank', icon: Compare, roles: ['org', 'volunteer'] },
-  { id: 'trends', label: 'Climate trends', icon: Trend, roles: ['org', 'volunteer'] },
-  { id: 'scenarios', label: 'Scenario lab', icon: Sliders, roles: ['org', 'volunteer'] },
+  { id: 'air', label: 'Air quality', icon: Droplet, roles: ['org', 'volunteer'] },
   { id: 'volunteer', label: 'Volunteer hub', icon: Sparkle, roles: ['volunteer'] },
-  { id: 'org', label: 'Org console', icon: Satellite, roles: ['org'] },
+  { id: 'compare', label: 'Compare & rank', icon: Compare, roles: ['org'] },
+  { id: 'trends', label: 'Climate trends', icon: Trend, roles: ['org'] },
+  { id: 'scenarios', label: 'Scenario lab', icon: Sliders, roles: ['org'] },
+  { id: 'org', label: 'Org portal', icon: Satellite, roles: ['org'] },
   { id: 'report', label: 'Report', icon: Doc, roles: ['org'] },
 ] as const;
 
@@ -32,6 +34,7 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
   const selectedId = route.unit && data.units.some((u) => u.properties.id === route.unit) ? route.unit : null;
   const [picks, setPicks] = useLocalState<string[]>('tw-picks', []);
   const live = useLiveWeather(data.units);
+  const air = useLiveAir(data.units);
 
   // Default comparison: the two riskiest units and the least risky one — an instant, meaningful contrast.
   const ranked = useMemo(() => [...data.units].sort((a, b) => scores.get(a.properties.id)!.rank - scores.get(b.properties.id)!.rank), [data.units, scores]);
@@ -69,7 +72,7 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
           <MapExplorer selectedId={selectedId} onSelect={select} compareIds={picks} />
           <div className="explore-side">
             {selectedId
-              ? <UnitPanel key={selectedId} id={selectedId} onClose={() => select(null)} onCompare={toggleCompare} inCompare={picks.includes(selectedId)} onScenario={(id) => go({ tab: 'scenarios', unit: id })} weather={live.data} />
+              ? <UnitPanel key={selectedId} id={selectedId} onClose={() => select(null)} onCompare={role === 'org' ? toggleCompare : undefined} inCompare={picks.includes(selectedId)} onScenario={role === 'org' ? (id) => go({ tab: 'scenarios', unit: id }) : undefined} weather={live.data} />
               : <CityOverview onOpenUnit={select} weather={live.data} />}
           </div>
         </div>
@@ -77,7 +80,8 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
       {tab === 'compare' && <CompareTab picks={picks} setPicks={setPicks} onOpenUnit={select} />}
       {tab === 'trends' && <TrendsTab picks={picks} />}
       {tab === 'report' && <ReportTab picks={picks} />}
-      {tab === 'volunteer' && <VolunteerTab />}
+      {tab === 'air' && <AirTab air={air} weather={live.data} />}
+      {tab === 'volunteer' && <VolunteerTab air={air} weather={live.data} />}
       {tab === 'org' && <OrgConsole />}
       {tab === 'scenarios' && <div className="tab-body container-wide"><ScenarioLab key={selectedId ?? 'none'} initialUnit={selectedId} /></div>}
     </div>

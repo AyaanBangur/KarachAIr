@@ -1,296 +1,175 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTerra } from '../../lib/data';
 import { useAuth } from '../../lib/auth';
-import { LOG_KINDS, SHARED_ENABLED, kindOf, logsToCsv, parseNote, useLogs, type LogKind, type Measure, type Mission, type Shade, type Status, type VolunteerLog } from '../../lib/logs';
-import { unitAt } from '../../lib/geo';
-import { downloadText } from '../../lib/export';
-import { fmtDelta, fmtTemp } from '../../lib/format';
-import { hrefFor } from '../../lib/hooks';
-import { Alert, ArrowRight, Check, Close, Doc, Download, MapIcon, Menu, Pin, Sparkle, Thermometer } from '../icons';
-import { Seg, TierBadge } from '../ui';
+import { SHARED_ENABLED, useLogs } from '../../lib/logs';
+import { useLocalState, type AirState, type LiveWeather } from '../../lib/hooks';
+import { GuideChat } from './GuideChat';
+import { AREAS, areaOf, typeOf, type Task } from '../../lib/guide';
+import { STATUS_TEXT, TIER_NAME, TIME_LABEL, acceptNote, acceptTags, ago, buildMissions, fmtH, gateFor, hourOptions, matchesFilters, missionLocked, parseProof, summarize, type Filters, type Mission } from '../../lib/service';
+import { useAirFocus } from '../air/useAirFocus';
+import { SafetyGate } from '../service/SafetyGate';
+import { Certificate } from '../service/Certificate';
+import { Seg, StatTile } from '../ui';
+import { Alert, Check, Close, Doc, Pin, Sparkle } from '../icons';
 
-const nowLocal = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
-const STATUS: Record<Status, { label: string; cls: string }> = { pending: { label: 'Awaiting review', cls: '' }, verified: { label: 'Verified', cls: 'ok' }, flagged: { label: 'Needs a second look', cls: 'bad' } };
-export const StatusChip = ({ s }: { s: Status }) => <span className={`chip status-chip ${STATUS[s].cls}`}>{s === 'verified' ? <Check /> : s === 'flagged' ? <Alert /> : null}{STATUS[s].label}</span>;
-
-export function VolunteerTab() {
-  const { data } = useTerra();
-  const { session } = useAuth();
-  const { logs, mine, missions, add, remove, sync, unsynced, refresh, persisted } = useLogs();
-  const [missionId, setMissionId] = useState<string | null>(null);
-  const volunteer = session?.member?.name ?? session?.org?.name ?? '';
-  const firstName = volunteer.split(' ')[0];
-  const [scope, setScope] = useState<'mine' | 'all'>('mine');
-  const taRef = useRef<HTMLTextAreaElement>(null);
-
-  const [viewId, setViewId] = useState<string | null>(null); // null = composer
-  const [drawer, setDrawer] = useState(false);
-  const [q, setQ] = useState('');
-
-  // ---- composer state
-  const [notes, setNotes] = useState('');
-  const [kind, setKind] = useState<LogKind | null>(null);
-  const [unitId, setUnitId] = useState<string | null>(null);
-  const [tempStr, setTempStr] = useState('');
-  const [measure, setMeasure] = useState<Measure | null>(null);
-  const [shade, setShade] = useState<Shade | null>(null);
-  const [place, setPlace] = useState('');
-  const [observedAt, setObservedAt] = useState(nowLocal);
-  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
-  const [geoMsg, setGeoMsg] = useState('');
-
-  const parsed = useMemo(() => parseNote(notes, data.units), [notes, data.units]);
-  const eff = {
-    kind: kind ?? parsed.kind ?? 'other',
-    unitId: unitId ?? parsed.unitId,
-    temp: tempStr !== '' ? parseFloat(tempStr) : parsed.tempC,
-    measure: measure ?? parsed.measure ?? 'air',
-    shade: shade ?? parsed.shade,
-  };
-  const tempOk = eff.temp == null || (Number.isFinite(eff.temp) && eff.temp >= 0 && eff.temp <= 80);
-  const canSave = (notes.trim().length > 0 || eff.temp != null) && tempOk;
-  const unitName = (id: string | null) => data.units.find((u) => u.properties.id === id)?.properties.name ?? null;
-
-  useEffect(() => { const t = taRef.current; if (t) { t.style.height = 'auto'; t.style.height = Math.min(240, t.scrollHeight) + 'px'; } }, [notes, viewId]);
-
-  const useLocation = () => {
-    if (!navigator.geolocation) { setGeoMsg('Location is not available in this browser.'); return; }
-    setGeoMsg('Finding you…');
-    navigator.geolocation.getCurrentPosition(
-      (p) => {
-        const { latitude: lat, longitude: lon } = p.coords;
-        setCoords({ lat, lon });
-        const u = unitAt(data.units, lon, lat);
-        if (u) { setUnitId(u.properties.id); setGeoMsg(`You're in ${u.properties.name}.`); } else setGeoMsg('Location saved, but it is outside Karachi\'s 24 units — pick a unit manually.');
-      },
-      () => setGeoMsg('Could not get your location. You can pick a unit instead.'),
-      { enableHighAccuracy: true, timeout: 12000 },
-    );
-  };
-
-  const reset = () => { setMissionId(null); setNotes(''); setKind(null); setUnitId(null); setTempStr(''); setMeasure(null); setShade(null); setPlace(''); setObservedAt(nowLocal()); setCoords(null); setGeoMsg(''); };
-  const newLog = () => { reset(); setViewId(null); setDrawer(false); setTimeout(() => taRef.current?.focus(), 50); };
-
-  const save = () => {
-    if (!canSave) return;
-    const log = add({
-      observedAt: new Date(observedAt || Date.now()).toISOString(), volunteer: volunteer.trim(), unitId: eff.unitId, place: place.trim(),
-      lat: coords?.lat ?? null, lon: coords?.lon ?? null, kind: eff.kind, tempC: eff.temp ?? null, measure: eff.temp != null ? eff.measure : null,
-      shade: eff.shade, tags: parsed.tags, notes: notes.trim(), missionId,
-    });
-    reset(); setViewId(log.id);
-  };
-
-  const startMission = (m: Mission) => {
-    setMissionId(m.id); if (m.kind) setKind(m.kind); if (m.unitId) setUnitId(m.unitId);
-    setNotes((n) => n || (m.kind ? kindOf(m.kind).example : '')); setViewId(null); setTimeout(() => { taRef.current?.focus(); taRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 60);
-  };
-  const activeMissions = missions.filter((m) => m.active);
-  const myVerified = logs.filter((l) => mine.has(l.id) && l.status === 'verified').length;
-  const prefill = (k: LogKind) => { const kd = kindOf(k); setKind(k); setNotes(kd.example); setTimeout(() => taRef.current?.focus(), 30); };
-
-  const current = viewId ? logs.find((l) => l.id === viewId) ?? null : null;
-  const scoped = scope === 'mine' ? logs.filter((l) => mine.has(l.id)) : logs;
-  const filtered = scoped.filter((l) => !q || `${l.notes} ${l.place} ${unitName(l.unitId) ?? ''} ${kindOf(l.kind).label}`.toLowerCase().includes(q.toLowerCase()));
-  const todayStr = new Date().toDateString();
-  const groups = [{ label: 'Today', items: filtered.filter((l) => new Date(l.createdAt).toDateString() === todayStr) }, { label: 'Earlier', items: filtered.filter((l) => new Date(l.createdAt).toDateString() !== todayStr) }].filter((g) => g.items.length);
-  const covered = new Set(scoped.map((l) => l.unitId).filter(Boolean)).size;
-
-  return (
-    <div className="tab-body container-wide">
-      <div className="vol">
-        <aside className={`vol-side card ${drawer ? 'open' : ''}`} aria-label="Your logs">
-          <button className="btn btn-primary new-log" onClick={newLog}><Sparkle />New log</button>
-          {SHARED_ENABLED && <Seg<'mine' | 'all'> label="Whose logs" value={scope} onChange={setScope} options={[{ value: 'mine', label: `My logs (${logs.filter((l) => mine.has(l.id)).length})` }, { value: 'all', label: `Team (${logs.length})` }]} />}
-          <input className="field" type="search" placeholder="Search logs" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search logs" />
-          <div className="vol-list">
-            {groups.length === 0 && <p className="muted" style={{ fontSize: 13, padding: '8px 6px' }}>{scoped.length ? 'No logs match your search.' : scope === 'mine' ? 'Your saved logs will appear here.' : 'No team logs yet.'}</p>}
-            {groups.map((g) => (
-              <div key={g.label}>
-                <div className="layer-label" style={{ padding: '8px 8px 4px' }}>{g.label}</div>
-                {g.items.map((l) => (
-                  <div key={l.id} className={`vol-item ${viewId === l.id ? 'on' : ''}`}>
-                    <button className="vol-item-main" onClick={() => { setViewId(l.id); setDrawer(false); }}>
-                      <i style={{ background: kindOf(l.kind).color }} />
-                      <span><b>{l.notes.split('\n')[0].slice(0, 46) || kindOf(l.kind).label}</b><small>{unitName(l.unitId) ?? 'No unit'} · {new Date(l.observedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}{l.status !== 'pending' ? (l.status === 'verified' ? ' · ✓ verified' : ' · ⚑ flagged') : ''}{!mine.has(l.id) && l.volunteer ? ` · ${l.volunteer}` : ''}</small></span>
-                    </button>
-                    {mine.has(l.id) && <button className="icon-btn del" aria-label="Delete log" onClick={() => { if (window.confirm('Delete this log? This cannot be undone.')) { remove(l.id); if (viewId === l.id) setViewId(null); } }}><Close /></button>}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-          <div className="vol-side-foot">
-            <div className="vol-stats"><div><b>{scoped.length}</b><span>{scope === 'mine' ? 'your logs' : 'all logs'}</span></div><div><b>{covered}</b><span>of {data.units.length} units</span></div></div>
-            <div className="chip-row wrap">
-              <button className="btn btn-sm" disabled={!scoped.length} onClick={() => downloadText('terrawatch-volunteer-logs.csv', logsToCsv(scoped, data.units), 'text/csv')}><Download />CSV</button>
-              <button className="btn btn-sm" disabled={!scoped.length} onClick={() => downloadText('terrawatch-volunteer-logs.json', JSON.stringify(scoped, null, 2), 'application/json')}><Download />JSON</button>
-            </div>
-            {SHARED_ENABLED ? (
-              <button className={`chip sync-chip ${sync}`} onClick={refresh} title="Click to refresh now">
-                <i className="dot" />{sync === 'online' ? 'Shared · synced' : sync === 'connecting' ? 'Connecting…' : `Offline${unsynced ? ` · ${unsynced} waiting to upload` : ''}`}
-              </button>
-            ) : <span className="chip">Saved on this device only</span>}
-            <p className="muted" style={{ fontSize: 11.5 }}>{!persisted ? 'Browser storage is blocked — export your logs before closing this tab. ' : ''}{SHARED_ENABLED ? 'Logs are shared with your team and organization. You can delete only your own logs.' : 'Export to share or back up.'}</p>
-          </div>
-        </aside>
-
-        <section className="vol-main">
-          <button className="icon-btn vol-drawer-btn" onClick={() => setDrawer((d) => !d)} aria-label="Toggle log list"><Menu /></button>
-
-          {current ? (
-            <LogThread log={current} onNew={newLog} />
-          ) : (
-            <div className="composer-wrap">
-              <div className="greet">
-                <span className="greet-spark"><Sparkle /></span>
-                <h2><span className="grad-text">Hello, {firstName || 'volunteer'}.</span></h2>
-                <p>What did you observe in Karachi today?</p>
-              </div>
-
-              <div className="hub-strip">
-                <div><b>{logs.filter((l) => mine.has(l.id)).length}</b><span>your logs</span></div>
-                <div><b>{myVerified}</b><span>verified by {session?.org?.name ?? 'your team'}</span></div>
-                <div><b>{new Set(logs.filter((l) => mine.has(l.id)).map((l) => l.unitId).filter(Boolean)).size}</b><span>neighbourhoods covered</span></div>
-                <div><b>{activeMissions.length}</b><span>open missions</span></div>
-              </div>
-
-              {activeMissions.length > 0 && (
-                <section className="missions" aria-label="Team missions">
-                  <h3 className="up-h">Missions from {session?.org?.name} <span className="chip">{activeMissions.length}</span></h3>
-                  <div className="mission-grid">
-                    {activeMissions.map((m) => {
-                      const pct = Math.min(100, Math.round((m.done / m.target) * 100));
-                      return (
-                        <button key={m.id} className={`mission ${missionId === m.id ? 'on' : ''}`} onClick={() => startMission(m)}>
-                          <span className="mission-top"><b>{m.title}</b>{m.unitId && <span className="chip"><Pin />{unitName(m.unitId)}</span>}</span>
-                          {m.details && <span className="muted mission-d">{m.details}</span>}
-                          <span className="mission-bar"><i style={{ width: `${pct}%` }} /></span>
-                          <span className="mission-foot"><span>{m.done} / {m.target} logs{pct >= 100 ? ' · complete' : ''}</span><span className="mission-go">{missionId === m.id ? 'Selected ✓' : 'Log for this mission →'}</span></span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
-
-              <div className="suggest">
-                {LOG_KINDS.filter((k) => k.id !== 'other').slice(0, 4).map((k) => (
-                  <button key={k.id} className="suggest-card" onClick={() => prefill(k.id)} style={{ '--tone': k.color } as React.CSSProperties}>
-                    <span className="suggest-title"><i />{k.label}</span><span className="suggest-ex">{k.example}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="composer card-glow">
-                <textarea ref={taRef} rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} aria-label="Describe your observation"
-                  placeholder="Describe what you see — e.g. “41°C near Empress Market in Saddar, no shade, long queue at the water cart”"
-                  onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save(); }} />
-
-                {(parsed.tempC != null || parsed.shade || parsed.unitId || parsed.tags.length > 0) && (
-                  <div className="detected" aria-live="polite">
-                    <span className="detected-label"><Sparkle />Detected from your note</span>
-                    {parsed.tempC != null && <span className="chip tag-derived">{parsed.tempC}°C {parsed.measure}</span>}
-                    {parsed.shade && <span className="chip tag-derived">{parsed.shade === 'none' ? 'No shade' : parsed.shade === 'partial' ? 'Partial shade' : 'Shaded'}</span>}
-                    {parsed.unitId && <span className="chip tag-derived"><Pin />{unitName(parsed.unitId)}</span>}
-                    {parsed.tags.map((t) => <span key={t} className="chip">{t}</span>)}
-                  </div>
-                )}
-
-                <div className="composer-fields">
-                  <label className="pill-field"><span>Type</span>
-                    <select className="select" value={eff.kind} onChange={(e) => setKind(e.target.value as LogKind)}>{LOG_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}</select></label>
-                  <label className="pill-field"><span>Neighbourhood</span>
-                    <select className="select" value={eff.unitId ?? ''} onChange={(e) => setUnitId(e.target.value || null)}><option value="">Choose…</option>{data.units.map((u) => <option key={u.properties.id} value={u.properties.id}>{u.properties.name}</option>)}</select></label>
-                  <label className="pill-field"><span>When</span><input className="field" type="datetime-local" value={observedAt} max={nowLocal()} onChange={(e) => setObservedAt(e.target.value)} /></label>
-                  <label className="pill-field"><span>Temperature °C</span>
-                    <input className="field" type="number" inputMode="decimal" min={0} max={80} step={0.1} placeholder={parsed.tempC != null ? String(parsed.tempC) : 'optional'} value={tempStr} onChange={(e) => setTempStr(e.target.value)} aria-invalid={!tempOk} /></label>
-                  {(eff.temp != null) && <div className="pill-field"><span>Reading is of</span><Seg<Measure> label="Measurement type" value={eff.measure} onChange={setMeasure} options={[{ value: 'air', label: 'Air' }, { value: 'surface', label: 'Surface' }]} /></div>}
-                  <div className="pill-field"><span>Shade</span><Seg<Shade | 'unset'> label="Shade" value={eff.shade ?? 'unset'} onChange={(v) => setShade(v === 'unset' ? null : v)} options={[{ value: 'unset', label: '—' }, { value: 'none', label: 'None' }, { value: 'partial', label: 'Partial' }, { value: 'full', label: 'Full' }]} /></div>
-                  <label className="pill-field grow"><span>Exact place (optional)</span><input className="field" placeholder="e.g. outside the main gate of the school" value={place} onChange={(e) => setPlace(e.target.value)} /></label>
-                  {activeMissions.length > 0 && <label className="pill-field"><span>Mission (optional)</span>
-                    <select className="select" value={missionId ?? ''} onChange={(e) => setMissionId(e.target.value || null)}><option value="">None</option>{activeMissions.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}</select></label>}
-                </div>
-
-                <div className="composer-foot">
-                  <div className="composer-left">
-                    <button className="btn btn-sm btn-ghost" onClick={useLocation}><Pin />Use my location</button>
-                    {geoMsg && <span className="muted" style={{ fontSize: 12 }}>{geoMsg}</span>}
-                    {!tempOk && <span style={{ color: 'var(--c-alert)', fontSize: 12 }}>Enter a temperature between 0 and 80 °C.</span>}
-                  </div>
-                  <button className="btn btn-primary send" disabled={!canSave} onClick={save} aria-label="Save log"><span>Save log</span><ArrowRight /></button>
-                </div>
-              </div>
-              <p className="muted tiny">Tip: press Ctrl/⌘ + Enter to save. {SHARED_ENABLED ? 'Saved logs are shared with your team and organization and appear on the map (location is rounded to ~100 m). ' : 'Your logs are stored on this device and appear on the map and in your report. '}Never include names, phone numbers or home addresses of other people.</p>
-            </div>
-          )}
-        </section>
-      </div>
-    </div>
-  );
-}
-
-// ------------------------------------------------------------------ saved log + TerraWatch context
-function LogThread({ log, onNew }: { log: VolunteerLog; onNew: () => void }) {
+/** Volunteer hub: filter for a mission, accept or skip the offers, and keep a record. The organization verifies the work. */
+export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWeather | null }) {
   const { data, scores } = useTerra();
-  const { logs, sync, missions } = useLogs();
-  const missionTitle = missions.find((m) => m.id === log.missionId)?.title;
-  const u = data.units.find((x) => x.properties.id === log.unitId) ?? null;
-  const s = u ? scores.get(u.properties.id) : null;
-  const k = kindOf(log.kind);
-  const sameUnit = logs.filter((l) => l.unitId === log.unitId && log.unitId).length;
-  const lst = u?.properties.lst, air = u?.properties.air;
+  const { session } = useAuth();
+  const { proofs, mine, add, remove, sync, refresh } = useLogs();
+  const focus = useAirFocus(data.units, air);
+  const [view, setView] = useState<'chat' | 'find' | 'record'>('chat');
+  const [simulate, setSimulate] = useState(false);
+  const [filters, setFilters] = useState<Filters>({ where: 'any', time: 'any', focus: 'any' });
+  const [skipped, setSkipped] = useState<string[]>([]);
+  const [open, setOpen] = useState<string | null>(null);
+  const [hours, setHours] = useState<number>(1);
+  const [adult, setAdult] = useState(false);
+  const [name, setName] = useState(session?.member?.name ?? session?.volunteer?.name ?? '');
+  const [school, setSchool] = useLocalState<string>('tw-school', '');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [cert, setCert] = useState<string | null>(null);
 
-  const notes: { tone: 'info' | 'warn'; text: string }[] = [];
-  if (log.tempC != null && log.measure === 'surface' && lst) notes.push({ tone: 'info', text: `Your surface reading of ${log.tempC.toFixed(1)}°C is ${fmtDelta(log.tempC - lst.day)}°C versus the satellite hot-season afternoon surface mean for ${u!.properties.short} (${fmtTemp(lst.day)}). Single readings vary with time of day, material and exact spot — many logs give a fairer comparison.` });
-  if (log.tempC != null && log.measure === 'air' && air) notes.push({ tone: 'info', text: `Your air reading of ${log.tempC.toFixed(1)}°C is ${fmtDelta(log.tempC - air.hotSeasonTmax)}°C versus the average May–June daily maximum air temperature for this area (${fmtTemp(air.hotSeasonTmax)}, ERA5-Land ~9 km model). Air and satellite surface temperatures measure different things, so they are not directly interchangeable.` });
-  if (log.tempC != null && log.tempC >= 40 && log.measure === 'air') notes.push({ tone: 'warn', text: 'Air temperatures at or above 40°C are dangerous for prolonged exposure. Drink water regularly and rest in shade.' });
-  if (log.kind === 'health' || log.tags.includes('heat-illness')) notes.push({ tone: 'warn', text: 'If anyone seems seriously unwell (confusion, fainting, no sweating, very hot dry skin), move them to shade, cool them, and call local emergency services immediately. This app is not medical advice.' });
+  const unit = focus.unit;
+  const place = unit?.properties.short ?? 'Karachi';
+  const org = session?.org?.name ?? 'your organization';
+  const gate = gateFor(focus.reading, simulate, place);
+  const sc = focus.id ? scores.get(focus.id) : undefined;
+  const bank = useMemo(() => buildMissions(unit, focus.reading, sc ? { label: sc.tier.label, rank: sc.rank, of: data.units.length } : null), [unit, focus.reading, sc, data.units.length]);
+  const offers = bank.filter((m) => matchesFilters(m, filters) && !skipped.includes(m.id));
+  const mineProofs = useMemo(() => proofs.filter((p) => mine.has(p.id)).map(parseProof), [proofs, mine]);
+  const totals = summarize(mineProofs, null);
+  const unitName = (id: string | null) => data.units.find((u) => u.properties.id === id)?.properties.name ?? 'Karachi';
+  const setF = <K extends keyof Filters>(k: K, v: Filters[K]) => { setFilters({ ...filters, [k]: v }); setOpen(null); };
+
+  const startAccept = (m: Mission) => { setOpen(open === m.id ? null : m.id); setHours(m.hours); setAdult(false); setError(''); };
+  const accept = (m: Mission) => {
+    setError('');
+    if (!name.trim()) return setError('Enter your full name above first.');
+    if (!school.trim()) return setError('Enter your school or group above first.');
+    if (missionLocked(m, gate)) return setError('Outdoor missions are locked while the air is hazardous.');
+    if (m.where === 'outdoor' && !adult) return setError('Tick the box to confirm an adult will be present.');
+    if (!unit) return setError('Choose a neighbourhood.');
+    add({
+      observedAt: new Date().toISOString(), volunteer: name.trim().slice(0, 60), unitId: unit.properties.id, place: '', lat: null, lon: null, kind: 'other', tempC: null, measure: null, shade: null,
+      tags: acceptTags({ mission: m, hours, student: name, school, gate }), notes: acceptNote({ mission: m, hours, student: name, school, gate }), missionId: null,
+    });
+    setOpen(null); setNotice(`Accepted: ${m.title} (${fmtH(hours)} h). It is in your record, and ${org} will verify it when you have done the work.`); setView('record');
+  };
+
+  /** A task accepted in the chat is saved exactly like one accepted from the mission list, so the organization verifies it. */
+  const acceptFromChat = (task: Task) => {
+    const area = areaOf(task.area) ?? AREAS[0];
+    const m: Mission = { id: task.id, tier: typeOf(task.type).key, tierLabel: typeOf(task.type).name, hours: task.hours, min: task.hours, max: task.hours, where: task.indoor ? 'indoor' : 'outdoor', focus: 'air', title: task.title, desc: '', trigger: 'Suggested by the volunteer guide' };
+    const who = name.trim() || 'Volunteer';
+    add({ observedAt: new Date().toISOString(), volunteer: who.slice(0, 60), unitId: area.unitId, place: '', lat: null, lon: null, kind: 'other', tempC: null, measure: null, shade: null,
+      tags: acceptTags({ mission: m, hours: task.hours, student: who, school: school || 'Not given', gate }), notes: acceptNote({ mission: m, hours: task.hours, student: who, school: school || 'Not given', gate }), missionId: null });
+  };
+
+  const certProof = cert ? mineProofs.find((p) => p.id === cert) : null;
 
   return (
-    <div className="thread">
-      <div className="msg user">
-        <div className="bubble">
-          <div className="bubble-top"><span className="kind-dot" style={{ background: k.color }} /><b>{k.label}</b><span className="muted">{new Date(log.observedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</span></div>
-          {log.notes && <p>{log.notes}</p>}
-          <div className="chip-row wrap">
-            {log.tempC != null && <span className="chip"><Thermometer />{log.tempC.toFixed(1)}°C {log.measure}</span>}
-            {log.shade && <span className="chip">{log.shade === 'none' ? 'No shade' : log.shade === 'partial' ? 'Partial shade' : 'Shaded'}</span>}
-            {u && <span className="chip"><Pin />{u.properties.name}</span>}
-            {log.place && <span className="chip">{log.place}</span>}
-            {log.lat != null && <span className="chip mono">{log.lat.toFixed(4)}, {log.lon?.toFixed(4)}</span>}
-            {log.tags.map((t) => <span key={t} className="chip">{t}</span>)}
-          </div>
-          <div className="chip-row wrap"><StatusChip s={log.status} />{log.missionId && missionTitle && <span className="chip tag-derived">Mission: {missionTitle}</span>}</div>
-          {log.reviewNote && <p className="muted tiny">Reviewer note: {log.reviewNote}</p>}
-          {log.volunteer && <span className="muted tiny">Logged by {log.volunteer}</span>}
-        </div>
+    <div className="tab-body container-wide svc">
+      <div className="svc-head">
+        <div><span className="eyebrow">Volunteer hub</span><h2>Hello, {name.split(' ')[0] || 'volunteer'}.</h2><p className="muted">Filter for a mission, accept the ones you want, and {org} will verify your hours and issue your certificate.</p></div>
+        <Seg<'chat' | 'find' | 'record'> label="Volunteer hub section" value={view} onChange={(v) => { setView(v); setNotice(''); }} options={[{ value: 'chat', label: 'Chat guide' }, { value: 'find', label: 'Find a mission' }, { value: 'record', label: `My record (${mineProofs.length})` }]} />
       </div>
 
-      <div className="msg bot">
-        <span className="bot-avatar"><Sparkle /></span>
-        <div className="bubble bot-card">
-          <div className="bubble-top"><b><Check style={{ color: 'var(--emerald-400)' }} /> Log saved</b><span className="muted">{SHARED_ENABLED ? (sync === 'online' ? 'shared with your team' : 'saved here · will upload when online') : 'stored on this device'}</span></div>
-          {u && s && lst ? (
-            <>
-              <p>Here is how <b>{u.properties.name}</b> looks in the TerraWatch data:</p>
-              <div className="ctx-grid">
-                <div><span>Heat risk</span><b><TierBadge index={s.index} compact /> #{s.rank}</b></div>
-                <div><span>Afternoon surface (satellite)</span><b className="mono">{fmtTemp(lst.day)}</b></div>
-                <div><span>Night surface (satellite)</span><b className="mono">{fmtTemp(lst.night)}</b></div>
-                <div><span>Your logs here</span><b className="mono">{sameUnit}</b></div>
-              </div>
-            </>
-          ) : <p className="muted">No neighbourhood was selected, so there is no satellite context to compare against. Pick a unit next time (or use “Use my location”).</p>}
-          {notes.map((n, i) => <div key={i} className={`callout ${n.tone === 'info' ? 'info' : ''}`}>{n.tone === 'warn' ? <Alert /> : <Sparkle />}<span>{n.text}</span></div>)}
-          <div className="bot-actions">
-            <button className="btn btn-primary btn-sm" onClick={onNew}><Sparkle />Add another log</button>
-            {log.lat != null && <a className="btn btn-sm" href={hrefFor({ tab: 'explore', unit: log.unitId ?? undefined })}><MapIcon />See on map</a>}
-            {!log.lat && u && <a className="btn btn-sm" href={hrefFor({ tab: 'explore', unit: u.properties.id })}><MapIcon />Open neighbourhood</a>}
-            <a className="btn btn-sm" href={hrefFor({ tab: 'report' })}><Doc />Include in report</a>
+      {view === 'chat' ? (
+        <GuideChat air={air} weather={weather} onAccept={acceptFromChat} />
+      ) : view === 'find' ? (
+        <>
+          <SafetyGate place={place} reading={focus.reading} simulate={simulate} onSimulate={setSimulate} />
+
+          <section className="card card-pad" aria-label="Mission filters">
+            <div className="card-title"><div><h3>What kind of mission do you want?</h3><p>Pick your filters and the missions that fit appear below. Nothing is added to your record until you accept.</p></div></div>
+            <div className="filter-grid">
+              <label className="pill-field"><span>Neighbourhood</span>
+                <select className="select" value={focus.isAuto ? '' : focus.id ?? ''} onChange={(e) => focus.setId(e.target.value || null)}>
+                  <option value="">Dirtiest air now{focus.isAuto && unit ? ` (${unit.properties.short})` : ''}</option>
+                  {data.units.map((u) => <option key={u.properties.id} value={u.properties.id}>{u.properties.name}</option>)}
+                </select></label>
+              <label className="pill-field"><span>Where</span>
+                <select className="select" value={filters.where} onChange={(e) => setF('where', e.target.value as Filters['where'])}><option value="any">Indoor or outdoor</option><option value="indoor">Indoor only</option><option value="outdoor">Outdoor (adult-supervised)</option></select></label>
+              <label className="pill-field"><span>Time you have</span>
+                <select className="select" value={filters.time} onChange={(e) => setF('time', e.target.value as Filters['time'])}>{(Object.keys(TIME_LABEL) as Filters['time'][]).map((k) => <option key={k} value={k}>{TIME_LABEL[k]}</option>)}</select></label>
+              <label className="pill-field"><span>Focus</span>
+                <select className="select" value={filters.focus} onChange={(e) => setF('focus', e.target.value as Filters['focus'])}><option value="any">Clean air or heat</option><option value="air">Clean air</option><option value="heat">Heat &amp; shade</option></select></label>
+            </div>
+            <div className="filter-grid">
+              <label className="pill-field"><span>Your full name</span><input className="field" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="e.g. Amina Baloch" /></label>
+              <label className="pill-field"><span>School or group</span><input className="field" value={school} maxLength={80} onChange={(e) => setSchool(e.target.value)} placeholder="e.g. Lyari Community School" /></label>
+            </div>
+          </section>
+
+          <section aria-label="Mission offers">
+            <div className="svc-sec-head"><h3>Missions for you in <span className="accent">{place}</span> <span className="chip">{offers.length}</span></h3>
+              {skipped.length > 0 && <button className="btn btn-sm btn-ghost" onClick={() => setSkipped([])}>Show {skipped.length} skipped</button>}</div>
+            {error && <div className="callout" role="alert" style={{ marginBottom: 12 }}><Alert /><span>{error}</span></div>}
+            {offers.length === 0 && <div className="card card-pad muted">No missions match these filters. Try “Any” for one of the filters.</div>}
+            <div className="mission-bank">
+              {offers.map((m) => {
+                const lk = missionLocked(m, gate);
+                return (
+                  <article key={m.id} className={`mcard tier-${m.tier} ${open === m.id ? 'on' : ''} ${lk ? 'locked' : ''}`}>
+                    <div className="mcard-chips"><span className="chip mtier">{m.tierLabel} · {fmtH(m.hours)} hrs</span><span className={`chip mwhere ${m.where}`}>{m.where === 'indoor' ? 'Indoor safe' : 'Adult-supervised'}</span></div>
+                    <span className="mtrigger">Trigger: {m.trigger}</span>
+                    <h4>{m.title}</h4>
+                    <p>{m.desc}</p>
+                    {open === m.id ? (
+                      <div className="accept-box">
+                        <label className="pill-field"><span>How many hours will you commit?</span>
+                          <select className="select" value={hours} onChange={(e) => setHours(parseFloat(e.target.value))}>{hourOptions(m).map((h) => <option key={h} value={h}>{fmtH(h)} hour{h === 1 ? '' : 's'}</option>)}</select></label>
+                        {m.where === 'outdoor' && <label className="check-row"><input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} /><span>An adult will be with me for this outdoor mission.</span></label>}
+                        <div className="chip-row wrap"><button className="btn btn-primary btn-sm" onClick={() => accept(m)}><Check />Accept mission</button><button className="btn btn-sm btn-ghost" onClick={() => setOpen(null)}>Cancel</button></div>
+                      </div>
+                    ) : (
+                      <div className="mcard-actions">
+                        <button className="btn btn-primary btn-sm" disabled={lk} onClick={() => startAccept(m)}>{lk ? '🔒 Locked — hazardous air' : 'Accept this mission'}</button>
+                        <button className="btn btn-sm btn-ghost" onClick={() => setSkipped([...skipped, m.id])}>Not for me</button>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      ) : (
+        <>
+          {notice && <div className="callout info"><Check /><span>{notice}</span></div>}
+          <div className="up-grid">
+            <StatTile icon={<Check />} tone="var(--emerald-400)" label="Verified hours" value={fmtH(totals.verifiedHours)} sub={`${totals.signed} mission${totals.signed === 1 ? '' : 's'} verified`} />
+            <StatTile icon={<Doc />} tone="var(--c-warn)" label="Accepted, awaiting verification" value={fmtH(totals.pendingHours)} sub={`${totals.pending} mission${totals.pending === 1 ? '' : 's'}`} />
+            <StatTile icon={<Pin />} tone="var(--c-cool)" label="Neighbourhoods" value={totals.units} sub="with verified work" />
           </div>
-        </div>
-      </div>
+          <section aria-label="Volunteering record">
+            <div className="svc-sec-head"><h3>My volunteering record</h3>
+              {SHARED_ENABLED && <button className={`chip sync-chip ${sync}`} onClick={refresh}><i className="dot" />{sync === 'online' ? 'Synced' : sync === 'connecting' ? 'Connecting…' : 'Offline'}</button>}</div>
+            {mineProofs.length === 0 && <div className="card card-pad muted">Nothing here yet. Accept a mission in “Find a mission”.</div>}
+            <div className="hist-list">
+              {mineProofs.map((p) => (
+                <article key={p.id} className="hist card">
+                  <div className="hist-main">
+                    <div className="hist-top"><b>{p.title}</b><span className={`chip status-chip ${STATUS_TEXT[p.status].cls}`}>{p.status === 'verified' ? <Check /> : p.status === 'flagged' ? <Alert /> : <Sparkle />}{STATUS_TEXT[p.status].label}</span></div>
+                    <div className="chip-row wrap"><span className="chip hrs">{p.status === 'verified' ? `+${fmtH(p.verifiedHours)} hrs verified` : `${fmtH(p.hours)} hrs committed`}</span><span className="chip"><Pin />{unitName(p.unitId)}</span><span className="chip">{TIER_NAME[p.tier]}</span><span className="muted tiny">accepted {ago(p.log.createdAt)}</span></div>
+                    {p.status === 'pending' && <p className="muted tiny">Do the mission, then {org} records the proof and verifies your hours. Your certificate appears here when that is done.</p>}
+                    {p.status === 'verified' && p.signer && <p className="muted tiny">Verified by <b>{p.signer.name}</b>{p.signer.role ? ` (${p.signer.role})` : ''} on {p.signer.date}. Your certificate is ready.</p>}
+                    {p.status === 'flagged' && <p className="hist-declined">{org} could not verify this mission{p.declineNote ? `: “${p.declineNote}”` : '.'}</p>}
+                  </div>
+                  <div className="hist-actions">
+                    {p.status === 'verified' && <button className="btn btn-primary btn-sm" onClick={() => setCert(p.id)}><Doc />View certificate</button>}
+                    {p.status === 'pending' && <button className="icon-btn" aria-label="Cancel this mission" title="Cancel this mission" onClick={() => { if (window.confirm('Cancel this accepted mission?')) remove(p.id); }}><Close /></button>}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
+
+      {certProof && <Certificate proof={certProof} unitName={unitName(certProof.unitId)} orgName={org} onClose={() => setCert(null)} />}
     </div>
   );
 }

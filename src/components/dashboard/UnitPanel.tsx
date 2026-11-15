@@ -17,7 +17,7 @@ const PILLARS = [
   { key: 'vulnerability', label: 'Vulnerability', hint: 'How little buffering they have', color: 'var(--c-veg)' },
 ] as const;
 
-export function UnitPanel({ id, onClose, onCompare, onScenario, inCompare, weather }: { id: string; onClose: () => void; onCompare: (id: string) => void; onScenario: (id: string) => void; inCompare: boolean; weather: LiveWeather | null }) {
+export function UnitPanel({ id, onClose, onCompare, onScenario, inCompare, weather }: { id: string; onClose: () => void; onCompare?: (id: string) => void; onScenario?: (id: string) => void; inCompare: boolean; weather: LiveWeather | null }) {
   const { data, scores, medians, weights } = useTerra();
   const [done, setDone] = useState(false);
   const u = data.units.find((x) => x.properties.id === id);
@@ -107,8 +107,8 @@ export function UnitPanel({ id, onClose, onCompare, onScenario, inCompare, weath
       </InfoNote>
 
       <div className="up-actions">
-        <button className={`btn ${inCompare ? 'is-success' : ''}`} onClick={() => onCompare(id)}>{inCompare ? <><Check />In comparison</> : <><Compare />Compare</>}</button>
-        <button className="btn" onClick={() => onScenario(id)}><Sliders />Run scenario</button>
+        {onCompare && <button className={`btn ${inCompare ? 'is-success' : ''}`} onClick={() => onCompare(id)}>{inCompare ? <><Check />In comparison</> : <><Compare />Compare</>}</button>}
+        {onScenario && <button className="btn" onClick={() => onScenario(id)}><Sliders />Run scenario</button>}
         <button className={`btn btn-primary ${done ? 'is-success' : ''}`} onClick={download}>{done ? <><Check />Saved</> : <><Download />Download brief</>}</button>
       </div>
     </aside>

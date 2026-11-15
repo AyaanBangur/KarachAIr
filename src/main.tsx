@@ -12,6 +12,9 @@ import './styles/layout.css';
 import './styles/dashboard.css';
 import './styles/map.css';
 import './styles/volunteer.css';
+import './styles/air.css';
+import './styles/service.css';
+import './styles/guide.css';
 import './styles/auth.css';
 import App from './App';
 

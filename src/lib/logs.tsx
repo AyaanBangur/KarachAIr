@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { UnitFeature } from './types';
 import { ApiError, SHARED_ENABLED, rpc } from './api';
 import { useAuth } from './auth';
+import { isProof } from './service';
 
 export { SHARED_ENABLED };
 export type LogKind = 'temperature' | 'shade' | 'water' | 'health' | 'surface' | 'other';
@@ -42,7 +43,8 @@ const writeJson = (k: string, v: unknown): boolean => { try { localStorage.setIt
 
 export type SyncState = 'local' | 'connecting' | 'online' | 'offline';
 interface Ctx {
-  logs: VolunteerLog[]; mine: Set<string>; missions: Mission[];
+  /** Field observations only. Proof-of-work submissions are kept separately in `proofs`. */
+  logs: VolunteerLog[]; proofs: VolunteerLog[]; mine: Set<string>; missions: Mission[];
   add: (l: NewLog) => VolunteerLog; remove: (id: string) => void;
   review: (id: string, status: Status, note?: string) => Promise<void>;
   createMission: (m: { title: string; details: string; unitId: string | null; kind: LogKind | null; target: number }) => Promise<string | null>;
@@ -63,7 +65,7 @@ export function LogsProvider({ children }: { children: ReactNode }) {
   const [remoteMine, setRemoteMine] = useState<Set<string>>(new Set());
   const [missions, setMissions] = useState<Mission[]>([]);
   const [pending, setPending] = useState<VolunteerLog[]>([]);
-  const [local, setLocal] = useState<VolunteerLog[]>([]);
+  const [local, setLocal] = useState<VolunteerLog[]>(() => readJson<VolunteerLog[]>(demoKey, []));
   const [sync, setSync] = useState<SyncState>(shared ? 'connecting' : 'local');
   const [persisted, setPersisted] = useState(true);
 
@@ -121,43 +123,16 @@ export function LogsProvider({ children }: { children: ReactNode }) {
     if (shared) { try { await rpc('tw_set_mission_active', { p_token: token, p_id: id, p_active: active }); } catch { void refresh(); } }
   }, [shared, token, refresh]);
 
-  const logs = useMemo(() => {
+  const allLogs = useMemo(() => {
     if (!shared) return [...local].sort((a, b) => b.observedAt.localeCompare(a.observedAt));
     const ids = new Set(remote.map((r) => r.id));
     return [...remote, ...pending.filter((p) => !ids.has(p.id))].sort((a, b) => b.observedAt.localeCompare(a.observedAt));
   }, [shared, local, remote, pending]);
+  const logs = useMemo(() => allLogs.filter((l) => !isProof(l)), [allLogs]);
+  const proofs = useMemo(() => allLogs.filter(isProof), [allLogs]);
   const mine = useMemo(() => (shared ? new Set([...remoteMine, ...pending.map((p) => p.id)]) : new Set(local.map((l) => l.id))), [shared, remoteMine, pending, local]);
-  const value = useMemo<Ctx>(() => ({ logs, mine, missions, add, remove, review, createMission, setMissionActive, sync, unsynced: pending.length, refresh: () => void refresh(), persisted, shared }), [logs, mine, missions, add, remove, review, createMission, setMissionActive, sync, pending.length, refresh, persisted, shared]);
+  const value = useMemo<Ctx>(() => ({ logs, proofs, mine, missions, add, remove, review, createMission, setMissionActive, sync, unsynced: pending.length, refresh: () => void refresh(), persisted, shared }), [logs, proofs, mine, missions, add, remove, review, createMission, setMissionActive, sync, pending.length, refresh, persisted, shared]);
   return <LogsCtx.Provider value={value}>{children}</LogsCtx.Provider>;
-}
-
-// ------------------------------------------------------------------ rule-based note parsing
-export interface Parsed { tempC: number | null; measure: Measure | null; shade: Shade | null; unitId: string | null; kind: LogKind | null; tags: string[] }
-const TAGS: [RegExp, string][] = [
-  [/\bwater|cooler|hydrat|drink/i, 'water'], [/\btrees?\b|canopy|greenery/i, 'trees'], [/\bshade|shaded|shelter/i, 'shade'],
-  [/\btin\b|corrugated|roof/i, 'roofs'], [/asphalt|tarmac|road|pavement/i, 'roads'], [/queue|crowd|market|bus stop|rickshaw/i, 'crowded'],
-  [/dizz|faint|heat ?stroke|dehydrat|cramp|vomit|ill\b|sick/i, 'heat-illness'], [/power cut|load ?shedding|outage|no electricity|fan/i, 'power'], [/school|mosque|hospital|clinic|park/i, 'landmark'],
-];
-const AIR = /\b(air|ambient|thermometer|weather)\b/i, SURF = /\b(surface|ground|road|roof|asphalt|pavement|infrared|ir gun|touch)\b/i;
-
-export function parseNote(text: string, units: UnitFeature[]): Parsed {
-  const out: Parsed = { tempC: null, measure: null, shade: null, unitId: null, kind: null, tags: [] };
-  const t = text.trim();
-  if (!t) return out;
-  const m = t.match(/(-?\d{2}(?:\.\d+)?)\s*(?:°\s*c|º\s*c|°|º|degrees?|deg\b|c\b)/i);
-  if (m) { const v = parseFloat(m[1]); if (v >= 20 && v <= 75) out.tempC = v; }
-  if (out.tempC != null) out.measure = SURF.test(t) && !AIR.test(t) ? 'surface' : 'air';
-  if (/\b(no|zero|without|lack of)\s+(any\s+)?shade|unshaded|no trees/i.test(t)) out.shade = 'none';
-  else if (/\b(partial|some|little|patchy)\s+shade|partly shaded/i.test(t)) out.shade = 'partial';
-  else if (/\b(full shade|fully shaded|under (a |the )?(tree|shade|flyover|bridge|awning)|in the shade)\b/i.test(t)) out.shade = 'full';
-  for (const u of units) {
-    const names = [u.properties.short.replace(/\bcantt\.?/i, '').replace(/\./g, '').trim(), u.properties.name.replace(/ (Town|Cantonment)$/i, '')].filter((n) => n.length > 3);
-    if (names.some((n) => new RegExp(`\\b${n.replace(/[-]/g, '[- ]')}\\b`, 'i').test(t))) { out.unitId = u.properties.id; break; }
-    if (u.properties.short === 'SITE' && /\bSITE\b/.test(t)) { out.unitId = u.properties.id; break; }
-  }
-  out.tags = [...new Set(TAGS.filter(([re]) => re.test(t)).map(([, tag]) => tag))];
-  out.kind = out.tags.includes('heat-illness') ? 'health' : out.tempC != null ? 'temperature' : out.tags.includes('water') ? 'water' : out.tags.includes('trees') || out.shade ? 'shade' : out.tags.includes('roofs') || out.tags.includes('roads') ? 'surface' : null;
-  return out;
 }
 
 // ------------------------------------------------------------------ export
