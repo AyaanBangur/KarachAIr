@@ -29,7 +29,7 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
   const [hours, setHours] = useState<number>(1);
   const [adult, setAdult] = useState(false);
   const [name, setName] = useState(session?.member?.name ?? session?.volunteer?.name ?? '');
-  const [school, setSchool] = useLocalState<string>('tw-school', '');
+  const [school, setSchool] = useLocalState<string>(`tw-school-${session?.volunteer?.id ?? session?.member?.id ?? 'demo'}`, '');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [cert, setCert] = useState<string | null>(null);
@@ -85,7 +85,7 @@ export function VolunteerTab({ air, weather }: { air: AirState; weather: LiveWea
   const acceptFromChat = (task: Task): string | null => acceptTask(taskToMission(task), task.unitId, null);
 
   // ---- missions the organization posted: shown under Notifications until the volunteer accepts or declines
-  const [declined, setDeclined] = useLocalState<string[]>('tw-declined-posts', []);
+  const [declined, setDeclined] = useLocalState<string[]>(`tw-declined-posts-${session?.volunteer?.id ?? session?.member?.id ?? 'demo'}`, []);
   const takenKeys = new Set(mineProofs.map((p) => p.missionKey));
   const notices = posted.filter((p) => p.active).map((p) => ({ p, m: toMission(p, org) }));
   const open_ = notices.filter(({ p, m }) => !takenKeys.has(m.id) && !declined.includes(p.id));
