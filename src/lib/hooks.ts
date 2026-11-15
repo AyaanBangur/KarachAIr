@@ -3,7 +3,7 @@ import type { UnitFeature } from './types';
 
 // ------------------------------------------------------------------ hash router
 // #/login · #/login/volunteer · #/login/organization · #/dashboard/<tab>?unit=<id>
-export const TAB_IDS = ['explore', 'compare', 'trends', 'scenarios', 'air', 'report', 'volunteer', 'org', 'sources'] as const;
+export const TAB_IDS = ['explore', 'compare', 'trends', 'air', 'report', 'volunteer', 'org', 'sources'] as const;
 export interface Route { page: 'dashboard' | 'login'; tab: string; unit: string | null }
 export function parseHash(h: string): Route {
   const [path, query = ''] = h.replace(/^#\/?/, '').split('?');

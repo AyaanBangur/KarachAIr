@@ -19,7 +19,6 @@ const SECTIONS: { key: SectionKey; label: string; hint: string }[] = [
   { key: 'live', label: 'Live conditions & trends', hint: 'Line graphs and volunteer priorities that update with live data' },
   { key: 'ranking', label: 'Risk ranking', hint: 'Chart and table of the Heat Risk Index' },
   { key: 'profiles', label: 'Neighbourhood profiles', hint: 'Per-unit indicators and opportunities' },
-  { key: 'scenario', label: 'Scenario analysis', hint: 'Follows whatever you set in the Scenario lab' },
   { key: 'volunteer', label: 'Field observations', hint: 'Your volunteers’ logs and their review status' },
   { key: 'method', label: 'Data, method & limits', hint: 'Sources, formula and honest caveats' },
 ];
@@ -32,7 +31,7 @@ export function ReportTab({ picks, air, weather }: { picks: string[]; air: LiveA
   const frame = useRef<HTMLIFrameElement>(null);
   const [opts, setOpts] = useState<ReportOptions>({
     title: 'Extreme heat in Karachi: where risk is highest', author: '', organisation: session?.org?.name ?? '', scope: 'all', picks, verifiedOnly: false,
-    sections: { summary: true, findings: true, live: true, ranking: true, profiles: true, scenario: true, volunteer: true, method: true },
+    sections: { summary: true, findings: true, live: true, ranking: true, profiles: true, scenario: false, volunteer: true, method: true },
   });
   const [saved, setSaved] = useState(false);
   const [showWeights, setShowWeights] = useState(false);

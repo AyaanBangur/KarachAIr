@@ -8,9 +8,8 @@ import { UnitPanel } from '../components/dashboard/UnitPanel';
 import { CityOverview } from '../components/dashboard/CityOverview';
 import { CompareTab } from '../components/dashboard/CompareTab';
 import { TrendsTab } from '../components/dashboard/TrendsTab';
-import { ScenarioLab } from '../components/dashboard/ScenarioLab';
 import { AirTab } from '../components/air/AirTab';
-import { Compare, Doc, Droplet, MapIcon, Satellite, Sliders, Sparkle, Table, Trend } from '../components/icons';
+import { Compare, Doc, Droplet, MapIcon, Satellite, Sparkle, Table, Trend } from '../components/icons';
 import { SourcesPanel } from '../components/SourcesPanel';
 import { useAuth } from '../lib/auth';
 import { OrgConsole } from '../components/org/OrgConsole';
@@ -21,7 +20,6 @@ const ALL_TABS = [
   { id: 'volunteer', label: 'Volunteer hub', icon: Sparkle, roles: ['volunteer'] },
   { id: 'compare', label: 'Compare & rank', icon: Compare, roles: ['org'] },
   { id: 'trends', label: 'Climate trends', icon: Trend, roles: ['org'] },
-  { id: 'scenarios', label: 'Scenario lab', icon: Sliders, roles: ['org'] },
   { id: 'org', label: 'Org portal', icon: Satellite, roles: ['org'] },
   { id: 'report', label: 'Report', icon: Doc, roles: ['org'] },
   { id: 'sources', label: 'Data & sources', icon: Table, roles: ['org'] },
@@ -74,7 +72,7 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
           <MapExplorer selectedId={selectedId} onSelect={select} compareIds={picks} />
           <div className="explore-side">
             {selectedId
-              ? <UnitPanel key={selectedId} id={selectedId} onClose={() => select(null)} onCompare={role === 'org' ? toggleCompare : undefined} inCompare={picks.includes(selectedId)} onScenario={role === 'org' ? (id) => go({ tab: 'scenarios', unit: id }) : undefined} weather={live.data} />
+              ? <UnitPanel key={selectedId} id={selectedId} onClose={() => select(null)} onCompare={role === 'org' ? toggleCompare : undefined} inCompare={picks.includes(selectedId)} weather={live.data} />
               : <CityOverview onOpenUnit={select} weather={live.data} />}
           </div>
         </div>
@@ -86,7 +84,6 @@ export function Dashboard({ route, go }: { route: Route; go: Go }) {
       {tab === 'volunteer' && <VolunteerTab air={air} weather={live.data} />}
       {tab === 'org' && <OrgConsole />}
       {tab === 'sources' && <div className="tab-body container-wide"><SourcesPanel air={air} weather={live} /></div>}
-      {tab === 'scenarios' && <div className="tab-body container-wide"><ScenarioLab key={selectedId ?? 'none'} initialUnit={selectedId} /></div>}
     </div>
   );
 }
