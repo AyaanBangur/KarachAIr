@@ -4,7 +4,7 @@
 
 **Length check:** the spoken words below are about 260, which is about 2 minutes at a calm pace. Read it once with a timer before recording. If you run over, cut the sentences marked (optional).
 
-**Before you record:** open https://karachair.netlify.app signed in as a volunteer (use "Try it as a guest volunteer"). Test your demo phrase first, because missions depend on live data. If "darakht lagao" gives no mission, use "plant trees". On a day with dirty air you can use "gari ka engine band karo" instead.
+**Before you record:** open https://karachair.netlify.app signed in as a volunteer (create a volunteer account first; the guest button was removed from the homepage). Test your demo phrase first, because missions depend on live data. If "darakht lagao" gives no mission, use "plant trees". On a day with dirty air you can use "gari ka engine band karo" instead.
 
 | Time | On screen | Say |
 |---|---|---|
