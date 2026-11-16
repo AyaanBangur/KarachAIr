@@ -2,12 +2,12 @@
 // It is trained in the browser at start-up (a fraction of a second) from the team-written dataset in intentCorpus.ts.
 //   labels: 1 waste & burning, 2 traffic no-idling, 3 trees & dust, 4 health & masks, 5 data & sensors, 0 = not an activity answer.
 // scripts/eval.ts compares it with simple baselines on test sentences it never saw, and docs/RESULTS.md reports the numbers.
-import { CORPUS, CORPUS_RU } from './intentCorpus';
+import { CORPUS } from './intentCorpus';
 
 // ------------------------------------------------------------------ dataset, split and augmentation
 export type Variant = 'clean' | 'typo' | 'framed';
 export type Split = 'train' | 'val' | 'test';
-export type Lang = 'en' | 'roman-urdu';
+export type Lang = 'en';
 export interface Example { text: string; base: string; label: number; variant: Variant; split: Split; lang: Lang }
 
 const hash = (s: string) => { let x = 2166136261; for (const c of s) { x ^= c.charCodeAt(0); x = Math.imul(x, 16777619); } return x >>> 0; };
@@ -29,7 +29,6 @@ export function allExamples(): Example[] {
   const out: Example[] = [];
   const sources: [string, string, Lang][] = [
     ...Object.entries(CORPUS).flatMap(([l, ts]) => ts.map((t) => [l, t, 'en'] as [string, string, Lang])),
-    ...Object.entries(CORPUS_RU).flatMap(([l, ts]) => ts.map((t) => [l, t, 'roman-urdu'] as [string, string, Lang])),
   ];
   for (const [l, base, lang] of sources) {
     const rnd = rngFor('aug:' + base), split = splitOf(base), label = Number(l);
@@ -97,7 +96,7 @@ export function probsLR(m: LRModel, text: string): { label: number; p: number }[
 export type Mode = 'model-only' | 'model-first' | 'rules-first';
 export interface Policy { model: 'nb' | 'lr'; mode: Mode; tau: number }
 /** Deployed settings, CHOSEN ON THE VALIDATION SPLIT by `npm run eval` (it prints the search and warns if these drift). */
-export const POLICY: Policy = { model: 'lr', mode: 'model-only', tau: 0.5 };
+export const POLICY: Policy = { model: 'lr', mode: 'model-first', tau: 0.5 };
 
 /**
  * Combine the model's probabilities with what the keyword rules understood.

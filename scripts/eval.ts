@@ -174,7 +174,6 @@ ${LABELS.map((l, i) => `| ${NAME[l]} | ${confusion[i].join(' | ')} |`).join('\n'
 ${group('Clean wording', (e) => e.variant === 'clean')}
 ${group('With typos', (e) => e.variant === 'typo')}
 ${group('Reworded ("I want to...", "maybe...")', (e) => e.variant === 'framed')}
-${group('Roman Urdu (Urdu in English letters)', (e) => e.lang === 'roman-urdu')}
 ${group('English', (e) => e.lang === 'en')}
 ${group('Short (1 to 3 words)', (e) => e.base.split(' ').length <= 3)}
 ${group('Long (6 or more words)', (e) => e.base.split(' ').length >= 6)}
@@ -194,7 +193,7 @@ On the sentences where the rules and the model disagree, the model alone was rig
 
 ${failures.length ? failures.join('\n') : 'No failures on this test set.'}
 
-Why we think it fails: the model learns from words and letter patterns, not meaning. It does best on wording close to the training sentences, and it can be fooled by sentences that mix two activities or use words it has never seen. It is trained on our own English wording, so it can be worse on how Karachi's students really type, including Roman Urdu. It does not understand Hindi directly; Hindi chats are translated to English first by a free service, which adds its own errors.
+Why we think it fails: the model learns from words and letter patterns, not meaning. It does best on wording close to the training sentences, and it can be fooled by sentences that mix two activities or use words it has never seen. It is trained on our own English wording, so it can be worse on how Karachi's students really type. It does not understand Hindi directly; Hindi chats are translated to English first by a free service, which adds its own errors.
 
 ## Hawa's other skills (smaller checks)
 
@@ -226,7 +225,7 @@ Why we think it fails: the model learns from words and letter patterns, not mean
 
 - Real students: every sentence here was written by us. A pilot with real students and real typing is the next step.
 - No ground-truth check of the heat ranking against thermometers.
-- Hindi and Roman Urdu input are not tested.
+- Hindi input is not tested, and the model is trained on English only.
 `;
 writeFileSync(join(process.cwd(), 'docs', 'RESULTS.md'), md);
 console.log(`splits: ${train.length}/${val.length}/${test.length} | leakage ${leak}`);
